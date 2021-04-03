@@ -1,0 +1,112 @@
+\documentclass[nobib]{tufte-book-tai}
+
+% -------------------------------FONTS--------------------------------- %
+%% latex font  
+% \usepackage[T1]{fontenc} %computer roman font
+% \usepackage[utf8]{inputenc} %computer roman font
+% \usepackage{lmodern} %computer roman font
+
+%% Tufte's ETBembo Font! Build with xelatex
+% \usepackage{fontspec} %tufte font
+% \setmainfont{ETBembo}%[Mapping=TeX-text] %tufte font
+%% this fixes a bug with Bembo: (https://github.com/Tufte-LaTeX/tufte-latex/issues/64)
+% \renewcommand\allcapsspacing[1]{{\addfontfeature{LetterSpace=15}#1}}
+% \renewcommand\smallcapsspacing[1]{{\addfontfeature{LetterSpace=10}#1}}
+
+% -------------------------------PREAMBLE--------------------------------- %
+\input{chapters/preamble_tufte}
+  
+\title{The Lonnrot Language}
+\author{Andrés Ricardo Garza Vela}
+
+
+% -------------------------------EPIGRAPHS--------------------------------- %
+
+%% latex style
+\usepackage{epigraph}
+\renewcommand{\epigraphflush}{flushleft}
+\renewcommand{\sourceflush}{flushleft}
+
+% Prints an epigraph and speaker in sans serif, all-caps type.
+\newcommand{\openepigraph}[2]{
+  {\Large
+  \noindent{#1}\\% epigraph
+  - {\itshape\noindent{#2}}% author
+  } }
+
+% ---------------------------------INDEX------------------------------------- %
+
+\usepackage{makeidx}
+\makeindex
+
+% ----------------------------BEGIN DOCUMENT--------------------------------- %
+
+\begin{document}
+%\raggedbottom
+\maketitlepage
+
+% \let\cleardoublepage\clearpage %this gets rid of blank pages. comment out for actual printing
+
+
+% ----------------------------COPYRIGHT PAGE--------------------------------- %
+\newpage
+\include{chapters/copyright_tufte}
+\clearpage
+
+
+
+% ----------------------------------TOC------------------------------------- %
+\setcounter{page}{3}
+\setcounter{tocdepth}{2}
+\tableofcontents
+
+\frontmatter
+% ------------------------------FRONT MATTER--------------------------------- %
+\setcounter{page}{5}
+
+\include{chapters/preface_tufte}
+%\include{chapters/acknowledgments_tufte}
+
+% ---------------------------------CHAPTERS---------------------------------- %
+\mainmatter
+\setcounter{secnumdepth}{2}
+
+%chapter 1
+\input{chapters/one_tufte}
+\clearpage
+
+%chapter 2
+\input{chapters/two_tufte}
+\clearpage
+
+%chapter 3
+\input{chapters/three_tufte}
+\clearpage
+
+%chapter 4
+\input{chapters/four_tufte}
+\clearpage
+
+%chapter 5
+%\input{chapters/five_tufte}
+\clearpage
+ 
+%-------------------------------BIBLIOGRAPHY---------------------------------- %
+%https://tex.stackexchange.com/questions/224871/tufte-book-with-standard-natbib-style-author-year-citations
+
+\backmatter
+
+\include{chapters/conclusion_tufte}
+\clearpage
+\thispagestyle{empty}
+
+\nocite{*}
+\bibliographystyle{alpha}
+\begin{fullwidth}
+\addcontentsline{toc}{chapter}{Bibliography}
+\bibliography{report}
+\end{fullwidth}
+
+%\printindex
+
+\end{document}

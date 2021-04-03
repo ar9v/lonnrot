@@ -1,0 +1,10 @@
+* Lonnrot
+
+A Racket implementation of a compiler for a subset of Scheme that's extended with
+miniKanren.
+
+** Contents
+- Sources, in =src/=, are Racket files that contain the implementation of Lonnrot
+- A written report, in =report=, which is a \LaTeX{} document, a bibliography file and
+  its output pdf. This will be updated over the course of the semester.
+  Acknowledgements and citations are found in this report.

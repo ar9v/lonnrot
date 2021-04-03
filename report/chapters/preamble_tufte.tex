@@ -1,0 +1,116 @@
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{cancel}
+\usepackage{amsthm}
+\usepackage{mathrsfs}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{graphicx}
+\usepackage{epigraph}
+\usepackage{booktabs}
+\usepackage{relsize}
+\usepackage{hyperref}
+\usepackage{multicol}
+  \setlength{\columnsep}{3cm}
+\usepackage{floatrow}
+	\newfloatcommand{capbtabbox}{table}[][\FBwidth]
+\usepackage{kbordermatrix}
+\usepackage{transparent}
+\usepackage[normalem]{ulem}
+\hypersetup{colorlinks} 
+\hypersetup{ %uncomment to override tufte colors
+    colorlinks=true,    
+    %urlcolor=ProcessBlue,
+    linkcolor =RubineRed,
+    citecolor=RubineRed
+}
+
+\usepackage{array}
+
+\usepackage[shortlabels]{enumitem}
+\setlist[enumerate]{leftmargin=*, align=left}
+\setlist[itemize]{topsep=1ex}
+
+% Diagram Packages: Need to keep in this order.
+\usepackage{tikz}
+\usetikzlibrary{cd,calc, arrows, shapes, matrix, positioning, intersections, decorations.markings, arrows.meta, decorations.pathmorphing}
+  \tikzcdset{arrow style=tikz, diagrams={>=stealth}}
+	\tikzstyle{vertex}=[fill=black,circle,scale=0.6]
+	\tikzset{thick/.style={line width=.6mm}}
+  \tikzstyle{tensor}=[circle,thick,draw=black,fill=blue!60!green!40!white,minimum size=4mm]
+  \tikzstyle{witharrow} = [thick,decoration={
+      markings,mark=at position 0.75 with {\arrow[scale=1.5,>=stealth]{>}}},postaction={decorate}]
+  \tikzstyle{littletensor}=[circle,thick,draw=black,fill=red!30,minimum size=.5mm] 
+
+% ----------------------------------Commands---------------------------------- %
+
+% functional version of the old command $\iso$. This takes an argument for what goes over the arrow.
+\newcommand{\ar}[1]{\xrightarrow{\ensuremath{#1}}}
+
+
+% Shorthand
+\newcommand{\V}{\mathcal{V}}
+\renewcommand{\C}{\mathsf{C}}
+\newcommand{\D}{\mathsf{D}}
+\newcommand{\E}{\mathsf{E}}
+\renewcommand{\o}{{\color{YellowOrange}o}}
+\newcommand{\g}{{\color{Green}g}}
+\newcommand{\p}{{\color{Purple}p}}
+\newcommand{\<}{\langle}
+\renewcommand{\>}{\rangle}
+\newenvironment{bsmallmatrix}
+  {\left[\begin{smallmatrix}}
+  {\end{smallmatrix}\right]}
+\let\emph\relax % there's no \RedeclareTextFontCommand
+\DeclareTextFontCommand{\emph}{\bfseries}
+
+
+
+
+% Categories and Operators
+\newcommand{\End}{\operatorname{End}}
+\newcommand{\op}{\operatorname{op}}
+\newcommand{\tr}{\operatorname{tr}}
+\DeclareMathOperator{\id}{id}
+\DeclareMathOperator{\eval}{eval}
+
+\newcommand{\adj}[4]{
+\begin{tikzcd}[ampersand replacement=\&, column sep=4ex, cramped]
+   #1 \colon #2	\ar[yshift=+.6ex]{r}
+\& #3 \colon #4	\ar[yshift=-.4ex]{l}
+\end{tikzcd}
+}
+
+% -----------------------------------Style------------------------------------ %
+% --                                                                        -- %
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}%[chapter]
+\newtheorem{lemma}{Lemma}[chapter]
+\newtheorem{proposition}{Proposition}[chapter]
+\newtheorem{corollary}{Corollary}[chapter]
+\newtheorem{takeaway}{Takeaway}%[section]
+
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[chapter]
+\newtheorem{example}{Example}[chapter]
+\newtheorem{remark}{Remark}[chapter]
+\newtheorem{aside}{Aside}%[chapter]
+
+% Named Theorems
+\newtheorem{Yoneda}{Yoneda Lemma}[theorem]
+\newtheorem{tych}{Tychonoff's Theorem}{\bfseries}{\itshape}
+\newtheorem*{UP_vect}{Universal Property for Vector Spaces}{\bfseries}{\itshape}
+\newtheorem*{UP_meet}{Universal Property for Free Meet Semilattices}{\bfseries}{\itshape}
+\newtheorem*{UP_join}{Universal Property for Free Join Semilattices}{\bfseries}{\itshape}
+\newtheorem*{UP_cocomplete}{Universal Property for the Free Cocompletion of a Category}{\bfseries}{\itshape}
+\newtheorem*{UP_complete}{Universal Property for the Free Completion of a Category}{\bfseries}{\itshape}
+\newtheorem*{mainprocedure}{Main Procedure}{\bfseries}{\itshape}
+
+% -----------------------------------Colors----------------------------------- %
+
+\newcommand{\tai}[1]{{\color{cyan}#1}}
+\newcommand{\green}[1]{{\color{Green}#1}}
+
+% -------------------------------TUFTE INDEX--------------------------------- %
+
