@@ -1,0 +1,32 @@
+\railalias{dol}{\$}
+\railalias{amp}{\&}
+\railalias{til}{\~{}}
+\railalias{uscore}{\textunderscore}
+\railalias{caret}{\^{}}
+\railalias{bs}{\char''5C}
+\railterm{dol, amp, til, uscore, caret, bs}
+\begin{rail}
+  program : form* ;
+
+  form : definition | expression ;
+
+  definition : '(' 'define' variable expression ')' ;
+
+  expression : constant
+  | variable
+  | '(' 'quote' datum ')'
+  | '(' 'fresh' formals expression (expression*) ')'
+  | '(' '==' expression expression ')'
+  | '(' 'run' digit formals expression ')'
+  | '(' 'lambda' formals expression (expression*) ')'
+  | '(' 'if' expression expression expression ')'
+  | '(' 'set!' variable expression ')'
+  | application ;
+
+  formals : variable
+  | '(' (variable*) ')'
+  | '(' variable (variable*) '.' variable ')' ;
+
+  application : '(' expression (expression*) ')' ;
+
+\end{rail}
