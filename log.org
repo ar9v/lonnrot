@@ -6,8 +6,19 @@ Started work on actual coursework. Added lexemes, syntax and railroad diagrams.
 There is still prose to be written to clarify the diagrams (e.g. the =anyChar= terminal
 literally means any char, and hence it doesn't have a production rule, etc.)
 
+This includes:
+- The bibliography file
+- The overall structure of the report in LaTeX
+
 Work on the first compilers and interpreters was done (i.e. Abscond, Blackmail, Con).
 I decided a Makefile would make the whole iterative process /a bit/ less tedious.
+
+This includes:
+- The C runtime (so far, it only prints the result of running the program)
+- The parsing from:
+  + Source -> AST -> x86 AST -> NASM
+- An interpreter for the Source AST
+- A Makefile to compile the runtime and link it to the result of compiling the source
 
 ** Notes
 *** Calling Racket to run a file as a program (for the interpreter)
