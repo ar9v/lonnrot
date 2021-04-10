@@ -1,4 +1,28 @@
 * Lonnrot Development Log
 
 ** Change Log
+*** Friday March 9th, 2021
+Started work on actual coursework. Added lexemes, syntax and railroad diagrams.
+There is still prose to be written to clarify the diagrams (e.g. the =anyChar= terminal
+literally means any char, and hence it doesn't have a production rule, etc.)
+
+Work on the first compilers and interpreters was done (i.e. Abscond, Blackmail, Con).
+I decided a Makefile would make the whole iterative process /a bit/ less tedious.
+
 ** Notes
+*** Calling Racket to run a file as a program (for the interpreter)
+To run the interpeter (=interp.rkt=), one has to run
+=racket -t "interp.rkt" -m <file_name>=. Details on the flags is found
+in the Racket Reference, in section 18.1. For now, a TLDR is that =-t=
+uses the =main= function in =interp.rkt= to evaluate (=-m=) the results of calling
+=(main <file_name>)=. This is what we would alias to something like
+=lonnrot-i <file>= (i.e. like =ghci=). This is the same for the compiler,
+but we would instead provide =compile-file.rkt=.
+*** Compiling the runtime object file
+To produce the runtime object file, we run =gcc -m64 -c -o main.o main.c=. This
+=main.o= is then linked with the results of the =entry= function, i.e. the results
+of compiling our source code.
+*** Putting it together
+To assemble the result of compiling our source (i.e. the resulting NASM code)
+into an object file, we use =nasm -f elf64 -o <file>.o <file>.s=. The result of
+this is then linked to the runtime with =gcc main.o <file>.o -o <file>.run=.
