@@ -1,0 +1,29 @@
+\setlength{\grammarparsep}{8pt} % increase separation between rules
+\setlength{\grammarindent}{8em} % increase separation between LHS/RHS
+\begin{grammar}
+    <datum> ::= <boolean>
+    \indalt <character>
+    \indalt <variable>
+    \indalt <string>
+    \indalt <number>
+    \indalt <list>
+
+    <variable> ::= <initial> <subsequent>*
+
+    <initial> ::= <letter> | `!' | `$' | `&' | `*' | `/' | `:' | `<' | `=' | `>' | `?' | `~' | `_' | `^'
+
+    <letter> ::= a | \ldots | z | A | \ldots | Z
+
+    <boolean> ::= \texttt{\#t} | \texttt{\#f}
+
+    <number> ::= <integer> | <decimal>
+
+    <integer> ::= <digit>+
+
+    <decimal> ::= <integer> `.' <digit>+
+
+    <char> ::= `\#' <any-character>
+
+    <list> ::= (<datum>*)
+    \indalt (<datum>+ . <datum>)
+\end{grammar}

@@ -1,0 +1,36 @@
+\railalias{dol}{\$}
+\railalias{amp}{\&}
+\railalias{til}{\~{}}
+\railalias{uscore}{\textunderscore}
+\railalias{caret}{\^{}}
+\railalias{bs}{\char''5C}
+\railterm{dol, amp, til, uscore, caret, bs}
+\begin{rail}
+  datum : boolean
+  | character
+  | variable
+  | string
+  | number
+  | list
+  ;
+
+  boolean : '\#t' | '\#f' ;
+
+  char : anyCharacter ;
+
+  number : integer | decimal ;
+
+  integer : digit + ;
+
+  decimal : integer '.' digit + ;
+
+  variable : initial (subsequent*) ;
+
+  initial : letter | '!' | dol | amp | '*' | '/' | ':' | '<' | '=' | '>' | '?' | til | uscore | caret ;
+
+  letter : [a--z] | [A--Z] ;
+
+
+  list : '(' (datum *) ')' | '(' (datum +) '.' datum ')'
+
+\end{rail}

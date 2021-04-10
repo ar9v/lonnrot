@@ -1,0 +1,4 @@
+* Lonnrot Development Log
+
+** Change Log
+** Notes

@@ -2,8 +2,8 @@
 \addcontentsline{toc}{chapter}{About the Lonnrot Language}
 
 % Discuss objective
-\newthought{The Lonnrot Language} is an implementation of a compiler for a
-subset of Scheme extended with the core of miniKanren. As such, it belongs to the
+\newthought{The Lonnrot Language} is intended to be an implementation of a compiler for a
+subset of Scheme extended with the core of miniKanren. As such, it will belong to the
 functional and relational paradigms of programming. This project is intended to be,
 above all things, \textit{exploratory}. That implies several things, chief amongst which
 are that it is not the be-all end-all of implementations, nor is it a breakthrough or anything like that.
@@ -14,7 +14,8 @@ That being said, there \textit{is} some sort of value proposition to this projec
 if not all implementations of miniKanren to date are interpreters or are DSL's for their
 respective host languages. This is understandable, especially when it comes to Lisps:
 extending the Lisp language via macros is a well documented tradition, and the resulting
-product is undeniably beautiful. However, there are things to be gained and interesting
+product is undeniably beautiful. Not only that, but given Lisp's syntax, it is indistinguishable from a DSL.
+However, there are things to be gained and interesting
 insights to be had: is it worth compiling miniKanren? Can we transfer our knowledge of
 methods used for other languages to this project? Can this shed light on how to optimize
 some of the workings that deal with the relational semantics?\marginnote{For example,
@@ -25,18 +26,23 @@ I do not claim to have answers to these questions, and frankly I know better tha
 them four months from now. What I do know is that it is an interesting premise for a
 first incursion in this domain (again, for me): \textbf{if not know, when would I start?} In the
 same vein, I hope that this report embodies the philosophy of growing a body of knowledge, of
-allowing oneself to err and to be playful. Speaking of which \ldots
+allowing oneself to err and to be playful. That is the reason why tenses will seem to be mixed up,
+because I'm writing this as I go. Speaking of which \ldots
 
 % Discuss area
-\newthought{This report is divided} into four chapters which cover the steps involved in writing
-the compiler. This organization is merely for editing purposes: the construction of Lonnrot is
-done following the ideas presented by Abdulaziz Ghuloum in \textit{An Incremental Approach to Compiler
-  Construction}.\marginnote{Lindsey Kuper \cite{kuper19} talks about this approach and Kent Dybvig's
+\newthought{This report will be divided} into an arbitrary number of chapters, which cover the steps
+involved in writing the compiler (s). This might seem weird at first, since a Preface is meant to outline
+the lay of the land. However, the construction of Lonnrot will be done following the ideas presented
+by Abdulaziz Ghuloum in \textit{An Incremental Approach to Compiler Construction}.
+\marginnote{Lindsey Kuper \cite{kuper19} talks about this approach and Kent Dybvig's
   ``cousin'' approach of writing the compiler back-to-front, making a language progressively more
-high-level, for those interested.}
+  high-level, for those interested.}
 The main idea is to write multiple compilers, with each one covering a progressively larger language.
 This is opposed to the idea of writing one compiler, front to back, for the originally intended
-language. The details and implications of this approach are very interesting and I would
+language. Due to this, it would be awkward to decide \textit{a priori} how chapters would be laid out.
+Instead, each chapter will be a documentation of progress for a given time frame (about a week or so).
+
+The details and implications of this approach are very interesting and I would
 do them a disservice by trying to explain them in a paragraph; I would encourage anyone
 to read up on them. For now it's enough to say that this project is a sort of mishmash of ideas
 on compiler construction: from Ghuloum's approach, to what makes the WAM be the WAM, passing

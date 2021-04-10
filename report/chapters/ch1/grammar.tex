@@ -1,0 +1,28 @@
+\setlength{\grammarparsep}{8pt} % increase separation between rules
+\setlength{\grammarindent}{8em} % increase separation between LHS/RHS
+\begin{grammar}
+    <program>     ::= <form>*
+
+    <form>        ::= <definition> | <expression>
+
+    <definition>  ::= (\texttt{define} <variable> <expression>)
+
+    <expression>  ::= <constant>
+    \indalt <variable>
+    \indalt (\texttt{quote} <datum>)
+    \indalt (\texttt{fresh} <formals> <expression> <expression>*)
+    \indalt (\texttt{==} <expression> <expression>)
+    \indalt (\texttt{run} <digit> <formals> <expression>)
+    \indalt (\texttt{lambda} <formals> <expression> <expression>*)
+    \indalt (\texttt{if} <expression> <expression> <expression>)
+    \indalt (\texttt{set!} <variable> <expression>)
+    \indalt <application>
+
+    <constant>    ::= <boolean> | <number> | <char> | <string>
+
+    <formals>     ::= <variable>
+    \indalt (<variable>*)
+    \indalt (<variable> <variable>* . <variable>)
+
+    <application> ::= (<expression> <expression>*)
+\end{grammar}

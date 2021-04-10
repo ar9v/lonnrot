@@ -39,6 +39,13 @@
 \usepackage{makeidx}
 \makeindex
 
+
+% ----------------------------GRAMMAR COMMANDS------------------------------- %
+
+\usepackage[nounderscore]{syntax}
+\newcommand{\indalt}[1][-1.5]{\\\hspace*{#1em}\textbar\quad}
+
+\usepackage{rail}
 % ----------------------------BEGIN DOCUMENT--------------------------------- %
 
 \begin{document}
@@ -52,7 +59,6 @@
 \newpage
 \include{chapters/copyright_tufte}
 \clearpage
-
 
 
 % ----------------------------------TOC------------------------------------- %
@@ -100,6 +106,10 @@
 \clearpage
 
 \include{chapters/appendix}
+% TODO/IDEAS
+% Appendix with standard lib
+% Appendix with vocabulary, or maybe that could be part of the preface, abstract etc.
+% Alternatively, some definitions could be part of the marginalia/sidenotes
 \clearpage
 \thispagestyle{empty}
 
