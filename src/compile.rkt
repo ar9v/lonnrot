@@ -15,7 +15,18 @@
         (compile-e expr)
         (Ret)))
 
-;; compile-e: Expr -> Asm (x86 AST)
+;; compile-e: AST -> Asm (x86 AST)
 (define (compile-e expr)
   (match expr
-    [(Int i) (seq (Mov 'rax i))]))
+    [(Prim1 op expr) (compile-prim1 op expr)]
+    [(Int i)         (compile-integer i)]))
+
+;; compile-prim1: Symbol x
+(define (compile-prim1 op expr)
+  (seq (compile-e expr)
+       (match op
+         ['add1 (seq (Add 'rax 1))]
+         ['sub1 (seq (Sub 'rax 1))])))
+
+(define (compile-integer i)
+  (seq (Mov 'rax i)))

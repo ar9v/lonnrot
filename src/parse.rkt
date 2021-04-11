@@ -2,7 +2,11 @@
 (provide parse)
 (require "ast.rkt")
 
-;; parse: Sexp -> Expr
+;; parse: Sexp -> Either Expr Error
 (define (parse s)
   (cond [(integer? s) (Int s)]
-        [else (error "Parsing error")]))
+        [else
+         (match s
+           [(list 'add1 e) (Prim1 'add1 (parse e))]
+           [(list 'sub1 e) (Prim1 'sub1 (parse e))]
+           [_ (error "Parsing error")])]))
