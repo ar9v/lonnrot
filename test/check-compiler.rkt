@@ -7,6 +7,7 @@
          "../src/ast.rkt")
 
 
+;; Expr: AST Expr
 (define (check-compiler expr)
   (check-eqv? (interp expr)
               (asm-interp (compile expr))))

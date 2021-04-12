@@ -18,15 +18,30 @@
 ;; compile-e: AST -> Asm (x86 AST)
 (define (compile-e expr)
   (match expr
-    [(Prim1 op expr) (compile-prim1 op expr)]
-    [(Int i)         (compile-integer i)]))
+    [(Int i)           (compile-integer i)]
+    [(Prim1 op expr)   (compile-prim1 op expr)]
+    [(IfZero e1 e2 e3) (compile-ifzero e1 e2 e3)]))
 
-;; compile-prim1: Symbol x
+
+;; Expressions
+
+(define (compile-integer i)
+  (seq (Mov 'rax i)))
+
 (define (compile-prim1 op expr)
   (seq (compile-e expr)
        (match op
          ['add1 (seq (Add 'rax 1))]
          ['sub1 (seq (Sub 'rax 1))])))
 
-(define (compile-integer i)
-  (seq (Mov 'rax i)))
+(define (compile-ifzero e1 e2 e3)
+  (let ([l1 (gensym 'if)]
+        [l2 (gensym 'if)])
+    (seq (compile-e e1)
+         (Cmp 'rax 0)
+         (Je l1)
+         (compile-e e3)
+         (Jmp l2)
+         (Label l1)
+         (compile-e e2)
+         (Label l2))))
