@@ -1,7 +1,7 @@
 * Lonnrot Development Log
 
 ** Change Log
-*** Friday March 9th, 2021
+*** Friday April 9th, 2021
 Started work on actual coursework. Added lexemes, syntax and railroad diagrams.
 There is still prose to be written to clarify the diagrams (e.g. the =anyChar= terminal
 literally means any char, and hence it doesn't have a production rule, etc.)
@@ -19,6 +19,21 @@ This includes:
   + Source -> AST -> x86 AST -> NASM
 - An interpreter for the Source AST
 - A Makefile to compile the runtime and link it to the result of compiling the source
+
+*** Friday April 16th, 2021
+For this deliverable, I have implemented up to Dupe, which means that there is
+an implementation of AST operations for
+- =if=
+- =zero?= as a primitive
+
+And now we have booleans and integers as distinct types both in the interpreter
+and in the runtime (i.e. running a program that produces a boolean will correctly
+print the symbols =#t= and =#f= instead of their integer representations)
+
+Likewise, I've been studying about CEK machines and Continuation Passing Style.
+Methods inspired by Ghuloum's and Dybvig's literature on compiler nanopasses
+compile to x86; to make it more interesting (i.e. as opposed to mindlessly following
+one tutorial) it might be worthwhile trying to use one such IR besides the AST.
 
 ** Notes
 *** Calling Racket to run a file as a program (for the interpreter)
