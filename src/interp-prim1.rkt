@@ -1,9 +1,12 @@
 #lang racket
 (provide interp-prim1)
 
-;; interp-prim1: Symbol x Integer -> Integer
-(define (interp-prim1 op integer)
+;; interp-prim1: Symbol x Value -> Value
+(define (interp-prim1 op v)
   (match op
-    ['add1  (add1 integer)]
-    ['sub1  (sub1 integer)]
-    ['zero? (zero? integer)]))
+    ['add1          (add1 v)]
+    ['sub1          (sub1 v)]
+    ['zero?         (zero? v)]
+    ['char?         (char? v)]
+    ['integer->char (integer->char v)]
+    ['char->integer (char->integer v)]))

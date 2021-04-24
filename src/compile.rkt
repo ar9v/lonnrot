@@ -18,19 +18,17 @@
 ;; compile-e: AST -> Asm (x86 AST)
 (define (compile-e expr)
   (match expr
-    [(Int i)           (compile-integer i)]
-    [(Bool b)          (compile-boolean b)]
+    [(Int i)           (compile-value i)]
+    [(Bool b)          (compile-value b)]
+    [(Char c)          (compile-value c)]
     [(Prim1 op expr)   (compile-prim1 op expr)]
     [(If e1 e2 e3)     (compile-if e1 e2 e3)]))
 
 
 ;; Expressions
 
-(define (compile-integer i)
-  (seq (Mov 'rax (value->bits i))))
-
-(define (compile-boolean b)
-  (seq (Mov 'rax (value->bits b))))
+(define (compile-value v)
+  (seq (Mov 'rax (value->bits v))))
 
 (define (compile-prim1 op expr)
   (seq (compile-e expr)
@@ -38,12 +36,32 @@
          ['add1 (seq (Add 'rax (value->bits 1)))]
          ['sub1 (seq (Sub 'rax (value->bits 1)))]
          ['zero?
-          (let ([l1 (gensym 'nzero)])
+          (let ([l1 (gensym)])
             (seq (Cmp 'rax 0)
                  (Mov 'rax val-true)
                  (Je l1)
                  (Mov 'rax val-false)
-                 (Label l1)))])))
+                 (Label l1)))]
+         ['char?
+          (let ([l1 (gensym)])
+            (seq (And 'rax mask-char)
+                 (Xor 'rax type-char)
+                 (Cmp 'rax 0)
+                 (Mov 'rax val-true)
+                 (Je l1)
+                 (Mov 'rax val-false)
+                 (Label l1)))]
+
+         ;; To convert between values, the idea is simple:
+         ;; we strip their respective type tags, and then
+         ;; add the target type's type tag
+         ['char->integer
+          (seq (Sar 'rax char-shift)
+               (Sal 'rax int-shift))]
+         ['integer->char
+          (seq (Sar 'rax int-shift)
+               (Sal 'rax char-shift)
+               (Xor 'rax type-char))])))
 
 (define (compile-if e1 e2 e3)
   (let ([l1 (gensym 'if)]

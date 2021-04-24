@@ -7,6 +7,7 @@
   (match e
     [(Int i)  i]
     [(Bool b) b]
+    [(Char c) c]
     [(Prim1 op e) (interp-prim1 op (interp e))]
     [(If e1 e2 e3)
      (if (interp e1)
