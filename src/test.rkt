@@ -1,3 +1,3 @@
 #lang racket
 
-(integer->char 955)
+(write-byte 104)

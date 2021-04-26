@@ -8,6 +8,8 @@
 (define mask-char    #b11)
 (define val-true    #b011)
 (define val-false   #b111)
+(define val-eof    #b1011)
+(define val-void   #b1111)
 
 (define (bits->value b)
   (cond [(= type-int (bitwise-and b #b1))
