@@ -6,6 +6,7 @@
 ;; rdi is one of the caller-saved registers, and
 ;; it will have to be used for, e.g., write-byte
 (define rax 'rax)
+(define rbx 'rbx)
 (define rsp 'rsp)
 (define rdi 'rdi)
 
@@ -24,6 +25,7 @@
    (Extern 'peek_byte)
    (Extern 'read_byte)
    (Extern 'write_byte)
+   (Extern 'raise_error)
 
    ;; Before calling functions from other object files (e.g.
    ;; the IO functions in io.c), the stack has to be
@@ -34,7 +36,11 @@
    (Sub rsp 8)
    (compile-e expr)
    (Add rsp 8)
-   (Ret)))
+   (Ret)
+
+   ;; Now, we handle errors
+   (Label 'err)
+   (Call 'raise_error)))
 
 ;; compile-e: AST -> Asm (x86 AST)
 (define (compile-e expr)
@@ -43,8 +49,8 @@
     [(Bool b)          (compile-value b)]
     [(Char c)          (compile-value c)]
     [(Eof)             (compile-value eof)]
-    [(Prim0 op)        (compile-prim0 op)]
-    [(Prim1 op expr)   (compile-prim1 op expr)]
+    [(Prim0 p)         (compile-prim0 p)]
+    [(Prim1 p expr)    (compile-prim1 p expr)]
     [(If e1 e2 e3)     (compile-if e1 e2 e3)]
     [(Begin e1 e2)     (compile-begin e1 e2)]))
 
@@ -53,61 +59,86 @@
 (define (compile-value v)
   (seq (Mov rax (value->bits v))))
 
-(define (compile-prim0 op)
-  (match op
+(define (compile-prim0 p)
+  (match p
     ['void      (seq (Mov rax val-void))]
     ['read-byte (seq (Call 'read_byte))]
     ['peek-byte (seq (Call 'peek_byte))]))
 
-(define (compile-prim1 op expr)
+;; Since we have to check for errors, we'll have
+;; some helper functions per primitive
+
+;; Now, compile-prim1 requires logic for
+;; compiling the primitive and the expression. The idea is that
+;; with errors we can't indiscriminately generate code for
+;; each primitive.
+(define (compile-prim1 p expr)
   (seq (compile-e expr)
-       (match op
-         ;; Increment/decrement
-         ['add1 (seq (Add rax (value->bits 1)))]
-         ['sub1 (seq (Sub rax (value->bits 1)))]
+       (compile-p p)))
 
-         ;; Predicates
-         ['zero?
-          (let ([l1 (gensym)])
-            (seq (Cmp rax 0)
-                 (Mov rax val-true)
-                 (Je l1)
-                 (Mov rax val-false)
-                 (Label l1)))]
-         ['char?
-          (let ([l1 (gensym)])
-            (seq (And rax mask-char)
-                 (Xor rax type-char)
-                 (Cmp rax 0)
-                 (Mov rax val-true)
-                 (Je l1)
-                 (Mov rax val-false)
-                 (Label l1)))]
-         ['eof-object?
-          (let ([l1 (gensym)])
-            (seq (Cmp rax val-eof)
-                 (Mov rax val-true)
-                 (Je l1)
-                 (Mov rax val-false)
-                 (Label l1)))]
 
-         ;; IO
-         ['write-byte
-          (seq (Mov rdi rax)
-               (Call 'write_byte)
-               (Mov rax val-void))]
+(define (compile-p p)
+  (match p
+    ;; Increment/Decrement
+    ['add1
+     (seq assert-integer
+          (Add rax (value->bits 1)))]
+    ['sub1
+     (seq assert-integer
+          (Sub rax (value->bits 1)))]
 
-         ;; To convert between values, the idea is simple:
-         ;; we strip their respective type tags, and then
-         ;; add the target type's type tag
-         ['char->integer
-          (seq (Sar rax char-shift)
-               (Sal rax int-shift))]
-         ['integer->char
-          (seq (Sar rax int-shift)
-               (Sal rax char-shift)
-               (Xor rax type-char))])))
+    ;; Predicates
+    ['zero?
+     (let ([l1 (gensym)])
+       (seq assert-integer
+            (Cmp rax 0)
+            (Mov rax val-true)
+            (Je l1)
+            (Mov rax val-false)
+            (Label l1)))]
+    ['char?
+     (let ([l1 (gensym)])
+       ;; AND gives us the last two bits
+       ;; XOR will produce 0 if the last two bits are
+       ;; the same, i.e. if the last bits are 01, type char
+       (seq (And rax mask-char)
+            (Xor rax type-char)
+            (Cmp rax 0)
+            (Mov rax val-true)
+            (Je l1)
+            (Mov rax val-false)
+            (Label l1)))]
+    ['eof-object?
+     (let ([l1 (gensym)])
+       (seq (Cmp rax val-eof)
+            (Mov rax val-true)
+            (Je l1)
+            (Mov rax val-false)
+            (Label l1)))]
 
+    ;; Value conversions
+    ;; To convert between values, the idea is simple:
+    ;; we strip their respective type tags, and then
+    ;; add the target type's type tag
+    ['char->integer
+     (seq assert-char
+          (Sar rax char-shift)
+          (Sal rax int-shift))]
+    ['integer->char
+     (seq assert-integer
+          (Sar rax int-shift)
+          (Sal rax char-shift)
+          (Xor rax type-char))]
+
+    ;; IO
+    ['write-byte
+     (seq assert-byte
+          (Mov rdi rax)
+          (Call 'write_byte)
+          (Mov rax val-void))]))
+
+
+;; Conditional
 (define (compile-if e1 e2 e3)
   (let ([l1 (gensym 'if)]
         [l2 (gensym 'if)])
@@ -120,6 +151,44 @@
          (compile-e e3)
          (Label l2))))
 
+;; Sequence
 (define (compile-begin e1 e2)
   (seq (compile-e e1)
        (compile-e e2)))
+
+
+;; Assertions
+(define (assert-type mask type)
+  (seq (Mov rbx rax)
+       (And rbx mask)
+       (Cmp rbx type)
+       (Jne 'err)))
+
+(define assert-integer
+  (assert-type mask-int type-int))
+
+(define assert-char
+  (assert-type mask-char type-char))
+
+;; This is basically the comparison
+;; we made in the interpreter
+(define assert-codepoint
+  (let ([ok (gensym)])
+    (seq assert-integer
+         (Cmp rax (value->bits 0))
+         (Jl 'err)
+         (Cmp rax (value->bits 1114111))
+         (Jg 'err)
+         (Cmp rax (value->bits 55295))
+         (Jl ok)
+         (Cmp rax (value->bits 57344))
+         (Jg ok)
+         (Jmp 'err)
+         (Label ok))))
+
+(define assert-byte
+  (seq assert-integer
+       (Cmp rax (value->bits 0))
+       (Jl 'err)
+       (Cmp rax (value->bits 255))
+       (Jg 'err)))

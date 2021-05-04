@@ -5,13 +5,24 @@
 
 FILE* in;
 FILE* out;
+void (*error_handler)();
 
 void print_result(int64_t);
 void print_char(int64_t);
 
+void error_exit() {
+    printf("err\n");
+    exit(1);
+}
+
+void raise_error() {
+    return error_handler();
+}
+
 int main(int argc, char **argv) {
     in = stdin;
     out = stdout;
+    error_handler = &error_exit;
     print_result(entry());
     return 0;
 }

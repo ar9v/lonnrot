@@ -4,6 +4,7 @@
 (define int-shift       1)
 (define char-shift      2)
 (define type-int      #b0)
+(define mask-int      #b1)
 (define type-char    #b01)
 (define mask-char    #b11)
 (define val-true    #b011)
