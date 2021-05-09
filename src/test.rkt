@@ -1,3 +1,5 @@
 #lang racket
 
-(write-byte 104)
+(let ((x 7))
+  (let ((y 4))
+    (+ x y)))

@@ -1,5 +1,5 @@
 #lang racket
-(provide interp-prim0 interp-prim1)
+(provide interp-prim0 interp-prim1 interp-prim2)
 
 ;; interp-prim0: Op0 -> Value
 ;;
@@ -29,6 +29,10 @@
     ['eof-object?   (eof-object? v)]
     ['write-byte    (if (byte? v) (write-byte v) 'err)]))
 
+(define (interp-prim2 p v1 v2)
+  (match p
+    ['+ (+ v1 v2)]
+    ['- (- v1 v2)]))
 
 ;; codepoint: Any -> Boolean
 ;; (codepoint v) checks if value `v` is within

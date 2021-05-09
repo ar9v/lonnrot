@@ -14,9 +14,10 @@
   ;; We either have a value or a primitive application
   ;; We use cond here because we want to evaluate the predicates
   ;; as opposed to checking for a particular structure (i.e. `match`)
-  (cond [(integer? s) (Int s)]
-        [(boolean? s) (Bool s)]
-        [(char? s) (Char s)]
+  (cond [(integer? s)   (Int s)]
+        [(boolean? s)   (Bool s)]
+        [(char? s)      (Char s)]
+        [(symbol? s)    (Var s)]
         [else
          (match s
            ;; Nullary primitives (Prim0)
@@ -36,11 +37,19 @@
            [(list 'integer->char e) (Prim1 'integer->char (parse e))]
            [(list 'char->integer e) (Prim1 'char->integer (parse e))]
 
+           ;; Binary Primitives (Prim2)
+           [(list '+ e1 e2) (Prim2 '+ (parse e1) (parse e2))]
+           [(list '- e1 e2) (Prim2 '- (parse e1) (parse e2))]
+
            ;; Control/Sequencing operators
            [(list 'begin e1 e2)
             (Begin (parse e1) (parse e2))]
            [(list 'if e1 e2 e3)
             (If (parse e1) (parse e2) (parse e3))]
+
+           ;; Local binding
+           [(list 'let (list (list (? symbol? x) v)) e)
+            (Let x (parse v) (parse e))]
 
            ;; Error
            [_ (error "Parsing error")])]))
