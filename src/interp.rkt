@@ -1,6 +1,8 @@
 #lang racket
 (provide interp)
-(require "ast.rkt" "interp-prim.rkt")
+(require "ast.rkt"
+         "interp-prim.rkt"
+         "env.rkt")
 
 ;; Before, the semantics dictated that expressions such
 ;; as (zero? #f) or (add1 #f) had undefined behavior. Now
@@ -35,6 +37,7 @@
     [(Bool b) b]
     [(Char c) c]
     [(Eof)    eof]
+    [(Empty)  '()]
     [(Var x) (lookup x env)]
 
     ;; Primitives
@@ -72,22 +75,3 @@
      (match (interp-env e1 env)
        ['err 'err]
        [v (interp-env e2 (ext env x v))])]))
-
-
-;; lookup: Id x REnv -> Answer
-;; (lookup x env) Looks for the /value/ associated to the
-;; id `x` in the environment `env`
-(define (lookup var env)
-  (match env
-    [(cons (list y v) env)
-     (if (symbol=? var y)
-         v
-         (lookup var env))]))
-
-
-;; ext: REnv x Id x Value -> REnv
-;; (ext env x v) extends environment `env` with the pair
-;; (x . v)
-(define (ext env x v)
-  (cons (list x v)
-        env))

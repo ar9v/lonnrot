@@ -1,5 +1,6 @@
 #lang racket
 
-(let ((x 7))
-  (let ((y 4))
-    (+ x y)))
+(let ((x (cons 1 (cons 2 (cons 3 '())))))
+  (- 4
+     (+ (car x)
+        (car (cdr x)))))

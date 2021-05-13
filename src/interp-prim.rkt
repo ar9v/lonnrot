@@ -20,19 +20,38 @@
 ;; to Racket's equivalent primitive application
 (define (interp-prim1 op v)
   (match op
+    ;; Arithmetic
     ['add1          (if (integer? v) (add1 v) 'err)]
     ['sub1          (if (integer? v) (sub1 v) 'err)]
+
+    ;; Predicates
     ['zero?         (if (integer? v) (zero? v) 'err)]
     ['char?         (char? v)]
+    ['eof-object?   (eof-object? v)]
+
+    ;; Conversions
     ['integer->char (if (codepoint? v) (integer->char v) 'err)]
     ['char->integer (if (char? v) (char->integer v) 'err)]
-    ['eof-object?   (eof-object? v)]
-    ['write-byte    (if (byte? v) (write-byte v) 'err)]))
+
+    ;; I/O, Effects
+    ['write-byte    (if (byte? v) (write-byte v) 'err)]
+
+    ;; Inductive Data
+    ['box           (box v)]
+    ['unbox         (if (box? v) (unbox v) 'err)]
+
+    ['car           (if (pair? v) (car v) 'err)]
+    ['cdr           (if (pair? v) (cdr v) 'err)]))
+
 
 (define (interp-prim2 p v1 v2)
   (match p
-    ['+ (+ v1 v2)]
-    ['- (- v1 v2)]))
+    ;; Arithmetic
+    ['+ (if (and (integer? v1) (integer? v2)) (+ v1 v2) 'err)]
+    ['- (if (and (integer? v1) (integer? v2)) (+ v1 v2) 'err)]
+
+    ;; Inductive Data
+    ['cons (cons v1 v2)]))
 
 ;; codepoint: Any -> Boolean
 ;; (codepoint v) checks if value `v` is within

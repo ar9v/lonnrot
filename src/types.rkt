@@ -1,16 +1,34 @@
 #lang racket
 (provide (all-defined-out))
 
-(define int-shift       1)
-(define char-shift      2)
-(define type-int      #b0)
-(define mask-int      #b1)
-(define type-char    #b01)
-(define mask-char    #b11)
-(define val-true    #b011)
-(define val-false   #b111)
-(define val-eof    #b1011)
-(define val-void   #b1111)
+;; Immediates
+(define immediate-shift 3)
+
+;; Pointers
+(define ptr-mask #b111)
+
+;; Integers
+(define int-shift   (+ immediate-shift 1))
+(define type-int    #b0000)
+(define mask-int    #b1111)
+
+;; Chars
+(define char-shift   (+ immediate-shift 2))
+(define type-char    #b01000)
+(define mask-char    #b11111)
+
+;; Bools
+(define val-true    #b0011000)
+(define val-false   #b0111000)
+
+;; IO
+(define val-eof    #b1011000)
+(define val-void   #b1111000)
+
+;; Inductive Data
+(define type-box  #b001)
+(define type-cons #b010)
+(define val-empty #b10011000)
 
 (define (bits->value b)
   (cond [(= type-int (bitwise-and b #b1))
@@ -22,19 +40,30 @@
          (arithmetic-shift b (- char-shift))]
         [(= b val-true)  #t]
         [(= b val-false) #f]
+
+        [(= b val-eof)   eof]
+        [(= b val-void)  (void)]
+        [(= b val-empty) '()]
+
         [else (error "invalid bits")]))
 
-(define (value->bits v)
-  (cond [(integer? v) (arithmetic-shift v int-shift)] ;; add the flag
+(define (immediate->bits v)
+  (cond [(eof-object? v) val-eof]
+        [(integer? v)    (arithmetic-shift v int-shift)]
+
+        ;; In this case, we can't simply shift, because the char flag
+        ;; is comprised of 01, and not merely 0
+        ;;
+        ;; bitwise-ior is the bitwise inclusive or. The idea is simple:
+        ;; we convert the char to int for bit manipulation, we shift it
+        ;; to produce the zeroes and then:
+        ;; (bitwise-ior #b01 #b00) -> #b01
         [(char? v)
-         ;; In this case, we can't simply shift, because the char flag
-         ;; is comprised of 01, and not merely 0
-         ;;
-         ;; bitwise-ior is the bitwise inclusive or. The idea is simple:
-         ;; we convert the char to int for bit manipulation, we shift it
-         ;; twice to produce the two zeroes and then:
-         ;; (bitwise-ior #b01 #b00) -> #b01
          (bitwise-ior type-char
                       (arithmetic-shift (char->integer v) char-shift))]
+
         [(eq? v #t) val-true]
-        [(eq? v #f) val-false]))
+        [(eq? v #f) val-false]
+
+        [(void? v)  val-void]
+        [(empty? v) val-empty]))

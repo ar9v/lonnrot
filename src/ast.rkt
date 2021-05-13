@@ -1,7 +1,7 @@
 #lang racket
 
 (provide
- Eof Int Bool Char Var
+ Eof Empty Int Bool Char Var
  Prim0 Prim1 Prim2
  If Begin
  Let)
@@ -18,6 +18,7 @@
 
 ;; data Expr =
 ;;    Eof
+;;  | Empty ;; nil, or '()
 ;;  | Int Integer
 ;;  | Bool Boolean
 ;;  | Char Character
@@ -40,19 +41,29 @@
 ;;  | 'char->integer
 ;;  | 'write-byte
 ;;  | 'eof-object?
+;;  | 'box | 'unbox
+;;  | 'car | 'cdr
 ;;
-;; data Op2 = '+ | '-
+;; data Op2 = '+ | '- | 'cons
 ;;
 ;; Id = Symbol
 
+;; Values
 (struct Eof ()          #:prefab)
+(struct Empty ()        #:prefab)
 (struct Int (i)         #:prefab)
 (struct Bool (b)        #:prefab)
 (struct Char (c)        #:prefab)
 (struct Var (x)         #:prefab)
+
+;; Primitives
 (struct Prim0 (p)       #:prefab)
 (struct Prim1 (p e)     #:prefab)
 (struct Prim2 (p e1 e2) #:prefab)
+
+;; Conditional, Sequencing
 (struct If (e1 e2 e3)   #:prefab)
 (struct Begin (e1 e2)   #:prefab)
+
+;; Variable binding
 (struct Let (x e1 e2)   #:prefab)

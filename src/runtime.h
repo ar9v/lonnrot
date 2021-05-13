@@ -3,4 +3,7 @@
 int64_t entry();
 extern FILE* in;
 extern FILE* out;
-#endif // RUNTIME_H
+
+#define HEAP_SIZE 10000
+extern int64_t *heap;
+#endif /* RUNTIME_H */

@@ -3,13 +3,14 @@
 (require "ast.rkt" "types.rkt" a86/ast)
 
 ;; Registers
-;; rdi is one of the caller-saved registers, and
+;; `rdi` is one of the caller-saved registers, and
 ;; it will have to be used for, e.g., write-byte
-(define rax 'rax)
-(define rbx 'rbx)
-(define r8  'r8)
-(define rsp 'rsp)
-(define rdi 'rdi)
+(define rax 'rax) ;; Return value
+(define rbx 'rbx) ;; Heap
+(define r8  'r8)  ;; Placeholder in + and -
+(define r9  'r9)  ;; Placeholder in assert-type
+(define rsp 'rsp) ;; Stack Pointer
+(define rdi 'rdi) ;; Argument register (runtime calls)
 
 
 ;; compile: Expr -> Asm (x86 AST)
@@ -39,6 +40,9 @@
    ;; check per-case if we need to align the stack. Hence, we
    ;; delete our (Sub rsp 8) line.
    (Label 'entry)
+
+   ;; UPDATE (Hustle): We pass the heap pointer to rbx
+   (Mov rbx rdi)
    (compile-e expr '())
    (Ret)
 
@@ -65,6 +69,7 @@
     [(Bool b)          (compile-value b)]
     [(Char c)          (compile-value c)]
     [(Eof)             (compile-value eof)]
+    [(Empty)           (compile-value '())]
     [(Var x)           (compile-var x cenv)]
 
     ;; Primitives
@@ -80,7 +85,7 @@
 
 ;; Expressions
 (define (compile-value v)
-  (seq (Mov rax (value->bits v))))
+  (seq (Mov rax (immediate->bits v))))
 
 ;; Looking up a var is checking how many steps
 ;; into the stack it is found. We can't know the value
@@ -127,11 +132,11 @@
     ;; Increment/Decrement
     ['add1
      (seq (assert-integer rax cenv)
-          (Add rax (value->bits 1)))]
+          (Add rax (immediate->bits 1)))]
 
     ['sub1
      (seq (assert-integer rax cenv)
-          (Sub rax (value->bits 1)))]
+          (Sub rax (immediate->bits 1)))]
 
     ;; Predicates
     ['zero?
@@ -156,13 +161,8 @@
             (Mov rax val-false)
             (Label l1)))]
 
-    ['eof-object?
-     (let ([l1 (gensym)])
-       (seq (Cmp rax val-eof)
-            (Mov rax val-true)
-            (Je l1)
-            (Mov rax val-false)
-            (Label l1)))]
+    ['eof-object? (eq-imm val-eof)]
+    ['empty? (eq-imm val-empty)]
 
     ;; Value conversions
     ;; To convert between values, the idea is simple:
@@ -186,7 +186,30 @@
           (Mov rdi rax)
           (Call 'write_byte)
           (unpad-stack cenv)
-          (Mov rax val-void))]))
+          (Mov rax val-void))]
+
+    ;; Inductive Data
+    ['box
+     (seq (Mov (Offset rbx 0) rax)
+          (Mov rax rbx)
+          (Or rax type-box)
+          (Add rbx 8))]
+
+    ['unbox
+     (seq (assert-box rax)
+          (Xor rax type-box)
+          (Mov rax (Offset rax 0)))]
+
+    ['car
+     (seq (assert-cons rax cenv)
+          (Xor rax type-cons)
+          (Mov rax (Offset rax 8)))]
+
+    ['cdr
+     (seq (assert-cons rax cenv)
+          (Xor rax type-cons)
+          (Mov rax (Offset rax 0)))]))
+
 
 (define (compile-p2 p cenv)
   (match p
@@ -206,7 +229,24 @@
              (assert-integer r8 cenv)
              (assert-integer rax cenv)
              (Sub r8 rax)
-             (Mov rax r8))]))
+             (Mov rax r8))]
+
+    ['eq?
+     (let ([l1 (gensym)])
+       (seq (Cmp rax (Offset rsp 0))
+            (Sub rsp 8)
+            (Mov rax val-true)
+            (Je l1)
+            (Mov rax val-false)
+            (Label l1)))]
+
+    ['cons
+     (seq (Mov (Offset rbx 0) rax)
+          (Pop rax)
+          (Mov (Offset rbx 8) rax)
+          (Mov rax rbx)
+          (Or rax type-cons)
+          (Add rbx 16))]))
 
 ;; Conditional
 (define (compile-if e1 e2 e3 cenv)
@@ -271,12 +311,23 @@
       (seq (Add rsp 8))
       (seq)))
 
+;; eq-imm: Immediate -> AST Asm
+;; Little helper for compiling value predicates
+;; (e.g. val-empty and val-eof)
+(define (eq-imm imm)
+  (let ([l1 (gensym)])
+    (seq (Cmp rax imm)
+         (Mov rax val-true)
+         (Je l1)
+         (Mov rax val-false)
+         (Label l1))))
+
 ;; Assertions
 (define (assert-type mask type)
   (lambda (arg cenv)
-    (seq (Mov rbx arg)
-         (And rbx mask)
-         (Cmp rbx type)
+    (seq (Mov r9 arg)
+         (And r9 mask)
+         (Cmp r9 type)
          (Jne (error-label cenv)))))
 
 (define assert-integer
@@ -285,29 +336,34 @@
 (define assert-char
   (assert-type mask-char type-char))
 
+(define assert-box
+  (assert-type ptr-mask type-box))
+
+(define assert-cons
+  (assert-type ptr-mask type-cons))
+
 ;; This is basically the comparison
 ;; we made in the interpreter
 (define (assert-codepoint cenv)
   (let ([ok (gensym)])
     (seq (assert-integer rax cenv)
-         (Cmp rax (value->bits 0))
+         (Cmp rax (immediate->bits 0))
          (Jl (error-label cenv))
-         (Cmp rax (value->bits 1114111))
+         (Cmp rax (immediate->bits 1114111))
          (Jg (error-label cenv))
-         (Cmp rax (value->bits 55295))
+         (Cmp rax (immediate->bits 55295))
          (Jl ok)
-         (Cmp rax (value->bits 57344))
+         (Cmp rax (immediate->bits 57344))
          (Jg ok)
          (Jmp (error-label cenv))
          (Label ok))))
 
 (define (assert-byte cenv)
   (seq (assert-integer rax cenv)
-       (Cmp rax (value->bits 0))
+       (Cmp rax (immediate->bits 0))
        (Jl (error-label cenv))
-       (Cmp rax (value->bits 255))
+       (Cmp rax (immediate->bits 255))
        (Jg (error-label cenv))))
-
 
 ;; Error labeling
 ;; error-label: Cenv -> Label

@@ -1,5 +1,15 @@
 /*
-** Bit representations of values
+** UPDATE (Hustle):
+** Now, we have a new hierarchy:
+** - Values:
+**   - Immediates (end in 000)
+**     - Integers etc.
+**   - Pointers (end in non-000)
+**     - Box  (001)
+**     - Pair (010)
+**
+** Masks are the same, but shifted by three bits, which allow us to
+** represent pointers
 **
 ** Integers:
 **  - Mask: 1
@@ -18,14 +28,28 @@
 ** Void: 1111
 */
 
+// IMMEDIATES
+#define IMMEDIATE_SHIFT 3 // So, this produces ...000
+
+
+// POINTERS
+// There's only a pointer type mask because once we know something is a pointer
+// we must ask whether it is a pair or a box (i.e. there's no ptr type tag per se)
+#define PTR_TYPE_MASK ((1 << IMMEDIATE_SHIFT) - 1) // i.e. 1000 - 1 -> 111
+
+
 // INTEGERS
-#define INT_SHIFT        1
+#define INT_SHIFT        (1 + IMMEDIATE_SHIFT)    // 4 = _000
 #define INT_TYPE_MASK    ((1 << INT_SHIFT) - 1) // 1
 #define INT_TYPE_TAG     (0 << (INT_SHIFT - 1)) // 0
 #define NONINT_TYPE_TAG  (1 << (INT_SHIFT - 1)) // 1
 
+
 // CHARS
-#define CHAR_SHIFT 2
+// Since all values depend on the int shift and char shift,
+// by expressing the int shift in terms of the immediate shift, we can
+// keep our original definitions intact
+#define CHAR_SHIFT (INT_SHIFT + 1)
 
 // 100 - 1 = 11
 #define CHAR_TYPE_MASK ((1 << CHAR_SHIFT) - 1)
@@ -36,6 +60,7 @@
 // 1 -> 10 -> 10 | 1 -> 11
 #define NONCHAR_TYPE_TAG ((1 << (CHAR_SHIFT - 1)) | NONINT_TYPE_TAG)
 
+
 // BOOLEANS
 
 // 0 -> 000 -> 000 | 011 -> 011 -> 011
@@ -44,6 +69,7 @@
 // 1 -> 100 -> 100 | 011 -> 111 -> 111
 #define VAL_FALSE ((1 << CHAR_SHIFT) | NONCHAR_TYPE_TAG)
 
+
 // I/O
 
 // 10 -> 1000 -> 1000 | 11 -> 1011
@@ -51,3 +77,9 @@
 
 // 11 -> 1100 -> 1100 | 11 -> 1111
 #define VAL_VOID ((3 << CHAR_SHIFT) | NONCHAR_TYPE_TAG)
+
+
+// INDUCTIVE DATA
+#define BOX_TYPE_TAG 1
+#define CONS_TYPE_TAG 2
+#define VAL_EMPTY ((4 << CHAR_SHIFT) | NONCHAR_TYPE_TAG)
