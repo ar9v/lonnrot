@@ -1,10 +1,12 @@
 #lang racket
 
 (provide
+ Prog
  Eof Empty Int Bool Char Var
  Prim0 Prim1 Prim2
  If Begin
- Let)
+ Let
+ App Defn)
 
 ;; ast.rkt
 ;;
@@ -48,22 +50,32 @@
 ;;
 ;; Id = Symbol
 
+;; Program
+;; A program is a series of function definitions
+;; and an expression that is evaluated with these
+;; definitions
+(struct Prog (defs es)       #:prefab)
+
 ;; Values
-(struct Eof ()          #:prefab)
-(struct Empty ()        #:prefab)
-(struct Int (i)         #:prefab)
-(struct Bool (b)        #:prefab)
-(struct Char (c)        #:prefab)
-(struct Var (x)         #:prefab)
+(struct Eof ()               #:prefab)
+(struct Empty ()             #:prefab)
+(struct Int (i)              #:prefab)
+(struct Bool (b)             #:prefab)
+(struct Char (c)             #:prefab)
+(struct Var (x)              #:prefab)
 
 ;; Primitives
-(struct Prim0 (p)       #:prefab)
-(struct Prim1 (p e)     #:prefab)
-(struct Prim2 (p e1 e2) #:prefab)
+(struct Prim0 (p)            #:prefab)
+(struct Prim1 (p e)          #:prefab)
+(struct Prim2 (p e1 e2)      #:prefab)
 
 ;; Conditional, Sequencing
-(struct If (e1 e2 e3)   #:prefab)
-(struct Begin (e1 e2)   #:prefab)
+(struct If (e1 e2 e3)        #:prefab)
+(struct Begin (e1 e2)        #:prefab)
 
 ;; Variable binding
-(struct Let (x e1 e2)   #:prefab)
+(struct Let (x e1 e2)        #:prefab)
+
+;; Function Application
+(struct Defn (f params body) #:prefab)
+(struct App (fn args)        #:prefab)

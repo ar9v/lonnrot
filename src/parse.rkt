@@ -2,6 +2,30 @@
 (provide parse)
 (require "ast.rkt")
 
+;; For Iniquity, we use the same trick that we use for the
+;; interpreter: We wrap the call to our original `parse` function
+;; with the pattern-match that produces the Prog struct
+(define (parse s)
+  (match s
+    [(list 'begin
+           (and ds (list 'define _ _)) ...
+           e)
+     (Prog (map parse-define ds) (parse-e e))]
+
+    [e (Prog '() (parse-e e))]))
+
+
+;; parse-define takes an s-exp that represents a function definition
+;; and parses it into its AST representation
+(define (parse-define defn)
+  (match defn
+    [(list 'define
+           (list (? symbol? fn) (? symbol? params) ...)
+           body)
+     (Defn fn params (parse-e body))]
+
+    [_ (error "Error parsing function definition" defn)]))
+
 ;; parse: Sexp -> Maybe Error
 ;;
 ;; (parse s) takes a symbolic expression, s, which
@@ -10,7 +34,7 @@
 ;;
 ;; The symbolic expression s represents the program parsed
 ;; by the Racket reader.
-(define (parse s)
+(define (parse-e s)
   ;; We either have a value or a primitive application
   ;; We use cond here because we want to evaluate the predicates
   ;; as opposed to checking for a particular structure (i.e. `match`)
@@ -28,42 +52,46 @@
 
            ;; Unary Primitives (Prim1)
            ;;;; Arithmetic primitives
-           [(list 'add1 e)          (Prim1 'add1          (parse e))]
-           [(list 'sub1 e)          (Prim1 'sub1          (parse e))]
+           [(list 'add1 e)          (Prim1 'add1          (parse-e e))]
+           [(list 'sub1 e)          (Prim1 'sub1          (parse-e e))]
 
            ;;;; Predicates
-           [(list 'zero? e)         (Prim1 'zero?         (parse e))]
-           [(list 'char? e)         (Prim1 'char?         (parse e))]
-           [(list 'eof-object? e)   (Prim1 'eof-object?   (parse e))]
+           [(list 'zero? e)         (Prim1 'zero?         (parse-e e))]
+           [(list 'char? e)         (Prim1 'char?         (parse-e e))]
+           [(list 'eof-object? e)   (Prim1 'eof-object?   (parse-e e))]
 
            ;;;; Value conversions
-           [(list 'integer->char e) (Prim1 'integer->char (parse e))]
-           [(list 'char->integer e) (Prim1 'char->integer (parse e))]
+           [(list 'integer->char e) (Prim1 'integer->char (parse-e e))]
+           [(list 'char->integer e) (Prim1 'char->integer (parse-e e))]
 
            ;;;; I/O, Effects
-           [(list 'write-byte e)    (Prim1 'write-byte    (parse e))]
+           [(list 'write-byte e)    (Prim1 'write-byte    (parse-e e))]
 
            ;;;; Inductive data
            [(list 'quote (list))    (Empty)]
-           [(list 'box e)           (Prim1 'box   (parse e))]
-           [(list 'unbox e)         (Prim1 'unbox (parse e))]
-           [(list 'car e)           (Prim1 'car   (parse e))]
-           [(list 'cdr e)           (Prim1 'cdr   (parse e))]
+           [(list 'box e)           (Prim1 'box   (parse-e e))]
+           [(list 'unbox e)         (Prim1 'unbox (parse-e e))]
+           [(list 'car e)           (Prim1 'car   (parse-e e))]
+           [(list 'cdr e)           (Prim1 'cdr   (parse-e e))]
 
            ;; Binary Primitives (Prim2)
-           [(list '+ e1 e2)     (Prim2 '+ (parse e1) (parse e2))]
-           [(list '- e1 e2)     (Prim2 '- (parse e1) (parse e2))]
-           [(list 'cons e1 e2)  (Prim2 'cons (parse e1) (parse e2))]
+           [(list '+ e1 e2)     (Prim2 '+ (parse-e e1) (parse-e e2))]
+           [(list '- e1 e2)     (Prim2 '- (parse-e e1) (parse-e e2))]
+           [(list 'cons e1 e2)  (Prim2 'cons (parse-e e1) (parse-e e2))]
 
            ;; Control/Sequencing operators
            [(list 'begin e1 e2)
-            (Begin (parse e1) (parse e2))]
+            (Begin (parse-e e1) (parse e2))]
            [(list 'if e1 e2 e3)
-            (If (parse e1) (parse e2) (parse e3))]
+            (If (parse-e e1) (parse-e e2) (parse-e e3))]
 
            ;; Local binding
            [(list 'let (list (list (? symbol? x) v)) e)
-            (Let x (parse v) (parse e))]
+            (Let x (parse-e v) (parse-e e))]
+
+           ;; Function definition and application
+           [(cons (? symbol? fn) args)
+            (App fn (map parse-e args))]
 
            ;; Error
            [x (error "Parsing error, found: " x)])]))
