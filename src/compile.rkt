@@ -61,12 +61,21 @@
 ;;
 ;; The parameters are reversed so that the rightmost param,
 ;; the latest, is at the top of the stack
+;;
+;; (cons #f (reverse params))
+;; That #f represents the space that is used when Call pushes the
+;; return pointer onto the stack.
 (define (compile-define d)
   (match d
     [(Defn f params body)
-     (seq (Label (symbol->label f))
-          (compile-e body (parity (cons #f (reverse params))))
-          (Ret))]))
+     (let ((env (parity (cons #f (reverse params)))))
+        (seq (Label (symbol->label f))
+             ;; UPDATE (jig):
+             ;; We want to compile this as a tail call. To this effect we propagate
+             ;; the amount of params we have, as this is quantity is what we'll have to
+             ;; "skip" when moving values around in memory
+             (compile-tail-e body env (length params))
+             (Ret)))]))
 
 ;; We append (#f) rather than cons it so we
 ;; because we want to align the stack, but not shift
@@ -88,6 +97,25 @@
      (seq (compile-define d)
           (compile-defines ds))]))
 
+
+;; compile-tail-e: AST Expr x CEnv x Int -> Asm (x86)
+;; compile-tail-e takes an expression represented as an AST node,
+;; a Compile Time Environment and the Amount of things that need
+;; to be skipped in memory, and generates code that performs a
+;; tail call
+;;
+;; From all possible nodes of the AST, only those with subexpressions
+;; are in need of specific tail call implementations, i.e. a value such
+;; as an integer is itself "the last thing to be executed" in itself.
+(define (compile-tail-e expr cenv size)
+  (match expr
+    [(If p c a)     (compile-tail-if p c a cenv size)]
+    [(Let x e1 e2)  (compile-tail-let x e1 e2 cenv size)]
+    [(Begin e1 e2)  (compile-tail-begin e1 e2 cenv size)]
+    [(App f args)   (if (<= (length args) size)
+                        (compile-tail-call f args cenv)
+                        (compile-app f args cenv))]
+    [_              (compile-e expr cenv)]))
 
 ;; compile-e: AST x CEnv -> Asm (x86 AST)
 ;; (compile-e e c) takes an expression and a compile-time environment
@@ -297,10 +325,26 @@
          (compile-e e3 cenv)
          (Label l2))))
 
+(define (compile-tail-if e1 e2 e3 cenv size)
+  (let ([l1 (gensym 'if)]
+        [l2 (gensym 'if)])
+    (seq (compile-e e1 cenv)
+         (Cmp rax val-false)
+         (Je l1)
+         (compile-tail-e e2 cenv size)
+         (Jmp l2)
+         (Label l1)
+         (compile-tail-e e3 cenv size)
+         (Label l2))))
+
 ;; Sequence
 (define (compile-begin e1 e2 cenv)
   (seq (compile-e e1 cenv)
        (compile-e e2 cenv)))
+
+(define (compile-tail-begin e1 e2 cenv size)
+  (seq (compile-e e1 cenv)
+       (compile-tail-e e2 cenv size)))
 
 ;; Variable bindings (let)
 ;; To bind a variable is to
@@ -316,6 +360,13 @@
        (compile-e e2 (cons x cenv))
        (Add rsp 8)))
 
+(define (compile-tail-let x e1 e2 cenv size)
+  (seq (compile-e e1 cenv)
+       (Push rax)
+       (compile-tail-e e2 (cons x cenv) size)
+       (Add rsp 8)))
+
+;; Function application (App)
 (define (compile-app f args cenv)
   (if (even? (+ (length args) (length cenv)))
 
@@ -336,7 +387,58 @@
            (Call (symbol->label f))
            (Add rsp (* 8 (add1 (length args)))))))
 
-;; TODO
+;; compile-tail-call: Symbol x [Exprs] x CEnv -> ASM
+(define (compile-tail-call f args cenv)
+  (let ([count (length args)])
+    (seq
+     ;; Compile the arguments as usual
+     (compile-es args cenv)
+
+     ;; Now move them to the stack spaces that we can clobber
+     ;; These are at rsp offsets whose distances are
+     ;; the amount of things put on the stack by compile-es plus
+     ;; all the other thing that might've been in context (e.g. if
+     ;; we call a function inside a `let`)
+     ;;
+     ;;  0 | arg1 | arg2 | frame-var 1 | ... | #f (return pointer) | free real estate | ...
+     (move-args count (+ count (in-frame cenv)))
+
+     ;; We can finally shave off the upper part of the stack up until
+     ;; the return pointer, since we reused the old frame!
+     (Add rsp (* 8 (+ count (in-frame cenv))))
+     (Jmp (symbol->label f)))))
+
+;; move-args: Int x Int -> ASM
+;; move-args checks how many args are left to move and how many spaces (i.e. the offset)
+;; they have to be moved from rsp
+(define (move-args num-items num-spaces)
+  (if (= num-items 0)
+      (seq) ;; You are done, nothing else to move
+
+      (seq
+       ;; (* 8 (sub1 num-items)) is the offset to the first argument of the
+       ;; function call, we store that in a scratch register...
+       (Mov r9 (Offset rsp (* 8 (sub1 num-items))))
+
+       ;; ...and then move it to the slot that is in the "original frame"
+       ;; (i.e. after the return pointer). This is the amount of stuff
+       ;; in the current frame plus how many items you have to move
+       (Mov (Offset rsp (* 8 (+ num-items num-spaces))) r9)
+
+       ;; And we call, but with one less item, gradually coming closer to
+       ;; the top of the stack
+       (move-args (sub1 num-items) num-spaces))))
+
+;; in-frame: CEnv -> Int
+;; in-frame gives us the amount of stuff that stands between the
+;; top of the stack (where rsp points) and the return pointer
+;; produced by a Call
+(define (in-frame cenv)
+  (match cenv
+    ['() 0]
+    [(cons #f rest) 0] ;; We found the return pointer
+    [(cons y rest) (+ 1 (in-frame rest))]))
+
 ;; compile-es: [Exprs] x Cenv -> (Seq ...)
 ;; compile-es provides a wrapper to sequence the code generated
 ;; from compiling a list of expressions, usually the args provided to a function
