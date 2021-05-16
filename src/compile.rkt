@@ -1,5 +1,5 @@
 #lang racket
-(provide compile)
+(provide (all-defined-out))
 (require "ast.rkt" "types.rkt" a86/ast)
 
 ;; Registers
@@ -7,13 +7,16 @@
 ;; it will have to be used for, e.g., write-byte
 (define rax 'rax) ;; Return value
 (define rbx 'rbx) ;; Heap
+(define rdx 'rdx) ;; Second return register
 (define r8  'r8)  ;; Placeholder in + and -
 (define r9  'r9)  ;; Placeholder in assert-type
 (define rsp 'rsp) ;; Stack Pointer
 (define rdi 'rdi) ;; Argument register (runtime calls)
 
 
-;; compile: Expr -> Asm (x86 AST)
+;; compile: Expr -> ASM (x86 AST)
+;; Wraps the compilation of a program within a Prog AST node
+;;
 ;; compile takes an expression represented in our
 ;; AST (the result from parsing) and emits an x86
 ;; AST representation
@@ -21,40 +24,70 @@
 ;; This function wraps the actual source compilation
 ;; between the "boilerplate" that precedes the entry
 ;; label in the `.s` file
-(define (compile expr)
-  (prog
-   ;; These are the C defined functions in the runtime
-   (Extern 'peek_byte)
-   (Extern 'read_byte)
-   (Extern 'write_byte)
-   (Extern 'raise_error)
+(define (compile p)
+  (match p
+    [(Prog defs expr)
+     (prog
+      ;; These are the C defined functions in the runtime
+      (Extern 'peek_byte)
+      (Extern 'read_byte)
+      (Extern 'write_byte)
+      (Extern 'raise_error)
 
-   ;; Before calling functions from other object files (e.g.
-   ;; the IO functions in io.c), the stack has to be
-   ;; aligned to 16 bytes (according to Sys V ABI convention)
-   ;; So we decrement a word from the stack pointer and then
-   ;; restore it.
-   ;;
-   ;; UPDATE (Fraud): however, since we will be pushing lexical
-   ;; addresses onto the stack (due to `let`), we will have to
-   ;; check per-case if we need to align the stack. Hence, we
-   ;; delete our (Sub rsp 8) line.
-   (Label 'entry)
+      ;; Before calling functions from other object files (e.g.
+      ;; the IO functions in io.c), the stack has to be
+      ;; aligned to 16 bytes (according to Sys V ABI convention)
+      ;; So we decrement a word from the stack pointer and then
+      ;; restore it.
+      ;;
+      ;; UPDATE (Fraud): however, since we will be pushing lexical
+      ;; addresses onto the stack (due to `let`), we will have to
+      ;; check per-case if we need to align the stack. Hence, we
+      ;; delete our (Sub rsp 8) line.
+      (Label 'entry)
+      ;; UPDATE (Hustle): We pass the heap pointer to rbx
+      (Mov rbx rdi)
+      ;; UPDATE (Iniquity): we pad the environment
+      (compile-e expr '(#f))
+      (Mov rdx rbx) ; return the heap pointer in second return register
+      (Ret)
+      (compile-defines defs))]))
 
-   ;; UPDATE (Hustle): We pass the heap pointer to rbx
-   (Mov rbx rdi)
-   (compile-e expr '())
-   (Ret)
+;; compile-define: Defn
+;; To compile a function definition we have to
+;; - Provide an ASM conformant label
+;; - Compile the body with an environment made up of the
+;;   parameters
+;;
+;; The parameters are reversed so that the rightmost param,
+;; the latest, is at the top of the stack
+(define (compile-define d)
+  (match d
+    [(Defn f params body)
+     (seq (Label (symbol->label f))
+          (compile-e body (parity (cons #f (reverse params))))
+          (Ret))]))
 
-   ;; Now, we can either have an error because the stack
-   ;; is unaligned or because of some other type of
-   ;; error (e.g. type mismatch) denoted as 'err.
-   ;;
-   ;; So, an alignment error simply aligns the stack and
-   ;; throws 'err
-   (Label 'raise_error_align)
-   (Sub rsp 8)
-   (Jmp 'raise_error)))
+;; We append (#f) rather than cons it so we
+;; because we want to align the stack, but not shift
+;; the stuff that's on top of it
+;;
+;; The precondition for issuing a `Call` is to have
+;; 16-byte alignment in the stack. But Call itself pushes the
+;; return address to the stack, so we must generate code that
+;; makes it so that the stack is not aligned
+(define (parity cenv)
+  (if (even? (length cenv))
+      (append cenv (list #f))
+      cenv))
+
+(define (compile-defines ds)
+  (match ds
+    ['() (seq)]
+    [(cons d ds)
+     (seq (compile-define d)
+          (compile-defines ds))]))
+
 
 ;; compile-e: AST x CEnv -> Asm (x86 AST)
 ;; (compile-e e c) takes an expression and a compile-time environment
@@ -80,7 +113,10 @@
     ;; Control, Sequencing, Variable bindings
     [(If e1 e2 e3)     (compile-if e1 e2 e3 cenv)]
     [(Begin e1 e2)     (compile-begin e1 e2 cenv)]
-    [(Let x e1 e2)     (compile-let x e1 e2 cenv)]))
+    [(Let x e1 e2)     (compile-let x e1 e2 cenv)]
+
+    ;; Function Application
+    [(App f es)        (compile-app f es cenv)]))
 
 
 ;; Expressions
@@ -280,6 +316,38 @@
        (compile-e e2 (cons x cenv))
        (Add rsp 8)))
 
+(define (compile-app f args cenv)
+  (if (even? (+ (length args) (length cenv)))
+
+      ;; If the stack is aligned, generate code for the arguments
+      ;; and  simply call the function
+      ;; After calling the function, pop off the arguments from
+      ;; the stack
+      (seq (compile-es args cenv)
+           (Call (symbol->label f))
+           (Add rsp (* 8 (length args))))
+
+      ;; If it is not aligned, adjust the stack by growing the stack
+      ;; Then compile the expressions with the padded environment
+      ;; Lastly, call the function and popoff the arguments and the
+      ;; extra space that was padded
+      (seq (Sub rsp 8)
+           (compile-es args cenv)
+           (Call (symbol->label f))
+           (Add rsp (* 8 (add1 (length args)))))))
+
+;; TODO
+;; compile-es: [Exprs] x Cenv -> (Seq ...)
+;; compile-es provides a wrapper to sequence the code generated
+;; from compiling a list of expressions, usually the args provided to a function
+(define (compile-es exprs cenv)
+  (match exprs
+    ['() '()]
+    [(cons e es)
+     (seq (compile-e e cenv)
+          (Push rax)
+          (compile-es es (cons #f cenv)))]))
+
 ;; Lookup
 ;; Lookup iterates over the environment and
 ;; returns the index of the variable it finds.
@@ -321,6 +389,25 @@
          (Je l1)
          (Mov rax val-false)
          (Label l1))))
+
+;; symbol->label: Symbol -> ASM Label
+;; Takes a Racket symbol and checks if it has illegal characters
+;; to produce a valid ASM label
+(define (symbol->label s)
+    (string->symbol
+     (string-append
+      "label_"
+      (list->string
+       (map (λ (c)
+              (if (or (char<=? #\a c #\z)
+                      (char<=? #\A c #\Z)
+                      (char<=? #\0 c #\9)
+                      (memq c '(#\_ #\$ #\# #\@ #\~ #\. #\?)))
+                  c
+                  #\_))
+           (string->list (symbol->string s))))
+      "_"
+      (number->string (eq-hash-code s) 16))))
 
 ;; Assertions
 (define (assert-type mask type)
@@ -373,7 +460,4 @@
 ;;
 ;; Basically, if our stack is aligned, it means
 ;; that the error is your normal 'err type
-(define (error-label cenv)
-  (if (even? (length cenv))
-      'raise_error
-      'raise_error_align))
+(define (error-label cenv) 'raise_error)
