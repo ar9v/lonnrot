@@ -2,9 +2,9 @@
 	gcc main.o char.o io.o $< -o $@
 
 main.o: main.c
-	gcc -c main.c -o main.o
-	gcc -c char.c -o char.o
-	gcc -c io.c -o io.o
+	gcc -c main.c -o main.o -fPIC
+	gcc -c char.c -o char.o -fPIC
+	gcc -c io.c -o io.o -fPIC
 
 %.o: %.s
 	nasm -f elf64 -o $@ $<

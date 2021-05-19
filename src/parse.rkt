@@ -26,6 +26,15 @@
 
     [_ (error "Error parsing function definition" defn)]))
 
+
+;; parse-bindings: [[Symbol Expr]] -> [[Symbol AST]]
+(define (parse-bindings bs)
+  (match bs
+    ['() '()]
+    [(cons (list (? symbol? sym) expr) rest)
+     (cons (list sym (parse-e expr))
+           (parse-bindings rest))]))
+
 ;; parse: Sexp -> Maybe Error
 ;;
 ;; (parse s) takes a symbolic expression, s, which
@@ -81,7 +90,7 @@
 
            ;; Control/Sequencing operators
            [(list 'begin e1 e2)
-            (Begin (parse-e e1) (parse e2))]
+            (Begin (parse-e e1) (parse-e e2))]
            [(list 'if e1 e2 e3)
             (If (parse-e e1) (parse-e e2) (parse-e e3))]
 
@@ -89,9 +98,22 @@
            [(list 'let (list (list (? symbol? x) v)) e)
             (Let x (parse-e v) (parse-e e))]
 
+           [(list 'letrec bindings body)
+            (LetRec (parse-bindings bindings) (parse-e body))]
+
+           [(list 'lambda (? symbol-list? params) body)
+            (Lambda '() params (parse-e body))]
+
            ;; Function definition and application
-           [(cons (? symbol? fn) args)
-            (App fn (map parse-e args))]
+           [(cons e args)
+            (App (parse-e e) (map parse-e args))]
 
            ;; Error
            [x (error "Parsing error, found: " x)])]))
+
+
+;; symbol-list?: [Any] -> Boolean
+;; symbol-list takes a list of atoms and returns true
+;; if all of its atoms are symbols
+(define (symbol-list? ls)
+  (= 0 (length (filter (lambda (a) (not (symbol? a))) ls))))

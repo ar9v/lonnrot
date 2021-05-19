@@ -7,6 +7,7 @@
 ;; it will have to be used for, e.g., write-byte
 (define rax 'rax) ;; Return value
 (define rbx 'rbx) ;; Heap
+(define rcx 'rcx) ;; scratch
 (define rdx 'rdx) ;; Second return register
 (define r8  'r8)  ;; Placeholder in + and -
 (define r9  'r9)  ;; Placeholder in assert-type
@@ -25,8 +26,10 @@
 ;; between the "boilerplate" that precedes the entry
 ;; label in the `.s` file
 (define (compile p)
-  (match p
-    [(Prog defs expr)
+  (match (label-lambdas (desugar p))
+    ;; UPDATE (loot): Since we desugar, there will be
+    ;; no definitions
+    [(Prog '() expr)
      (prog
       ;; These are the C defined functions in the runtime
       (Extern 'peek_byte)
@@ -51,7 +54,29 @@
       (compile-e expr '(#f))
       (Mov rdx rbx) ; return the heap pointer in second return register
       (Ret)
-      (compile-defines defs))]))
+      ;; Since we desugar, we have no defines. Instead, we have
+      ;; scattered lambdas. We retrieve them and compile them
+      (compile-lambda-definitions (get-lambdas expr)))]))
+
+(define (compile-lambda-definition l)
+  (match l
+    [(Lambda '() _ _) (error "Lambdas must be labeled to be compiled")]
+    [(Lambda name params body)
+     (let* ((free-vars (remq* params (free-variables body)))
+            (env (parity (cons #f (cons #f (reverse (append params free-vars)))))))
+
+       (seq (Label (symbol->label name))
+            ;; TODO: tail calls
+            (compile-e body env)
+            (Ret)))]))
+
+(define (compile-lambda-definitions ls)
+  ;; JMCT wraps everything in seq but is it really necessary?
+  (match ls
+    ['() (seq)]
+    [(cons d ds)
+     (seq (compile-lambda-definition d)
+          (compile-lambda-definitions ds))]))
 
 ;; compile-define: Defn
 ;; To compile a function definition we have to
@@ -112,9 +137,10 @@
     [(If p c a)     (compile-tail-if p c a cenv size)]
     [(Let x e1 e2)  (compile-tail-let x e1 e2 cenv size)]
     [(Begin e1 e2)  (compile-tail-begin e1 e2 cenv size)]
-    [(App f args)   (if (<= (length args) size)
-                        (compile-tail-call f args cenv)
-                        (compile-app f args cenv))]
+    ;; [(App f args)   (if (<= (length args) size)
+    ;;                     (compile-tail-call f args cenv)
+    ;;                     (compile-app f args cenv))]
+    [(App f args)   (compile-call f args cenv)]
     [_              (compile-e expr cenv)]))
 
 ;; compile-e: AST x CEnv -> Asm (x86 AST)
@@ -126,12 +152,13 @@
 (define (compile-e expr cenv)
   (match expr
     ;; Atomic data
-    [(Int i)           (compile-value i)]
-    [(Bool b)          (compile-value b)]
-    [(Char c)          (compile-value c)]
-    [(Eof)             (compile-value eof)]
-    [(Empty)           (compile-value '())]
-    [(Var x)           (compile-var x cenv)]
+    [(Int i)                    (compile-value i)]
+    [(Bool b)                   (compile-value b)]
+    [(Char c)                   (compile-value c)]
+    [(Eof)                      (compile-value eof)]
+    [(Empty)                    (compile-value '())]
+    [(Var x)                    (compile-var x cenv)]
+    [(Lambda name params body)  (compile-lambda name params (free-variables expr) cenv)]
 
     ;; Primitives
     [(Prim0 p)         (compile-prim0 p cenv)]
@@ -142,9 +169,15 @@
     [(If e1 e2 e3)     (compile-if e1 e2 e3 cenv)]
     [(Begin e1 e2)     (compile-begin e1 e2 cenv)]
     [(Let x e1 e2)     (compile-let x e1 e2 cenv)]
+    [(LetRec bindings body)
+     (compile-letrec (map car bindings)
+                     (map cadr bindings)
+                     body
+                     cenv)]
 
     ;; Function Application
-    [(App f es)        (compile-app f es cenv)]))
+    ;;[(App f es)        (compile-app f es cenv)]))
+    [(App f args) (compile-call f args cenv)]))
 
 
 ;; Expressions
@@ -366,6 +399,132 @@
        (compile-tail-e e2 (cons x cenv) size)
        (Add rsp 8)))
 
+;; Letrec
+;; compile-letrec: [Vars] x [Lambda] x Expr x CEnv -> ASM
+;; compile-letrec takes a list of symbols to be bound,
+;; a list of functions which will be the values of the vars
+;; a body, and an environment and generates the code to perform
+;; a letrec
+(define (compile-letrec lhs fs body cenv)
+  (seq
+   ;; First we generate the closures /without initializing them/
+   ;; This binds the variables to the prospective closures
+   (compile-letrec-lambdas fs cenv)
+
+   ;; Then, since we have already bound all variables to the prospective
+   ;; closures, we can safely initialize the closures with the complete
+   ;; context...
+   (compile-letrec-init lhs fs (append (reverse fs) cenv))
+
+   ;; ... which lets us compile the body in the freshly extended env
+   (compile-e body (append (reverse fs) cenv))
+
+   ;; And we deallocate the space
+   (Add rsp (* 8 (length fs)))))
+
+;; compile-letrec-lambdas: [Lambda] x CEnv -> ASM
+;; compile-letrec-lambdas pushes uninitialized closures
+;; of each f in fs onto the stack
+;;
+;; One could be tempted to simply call compile-lambda, but
+;; that would initialize the closure, hence a bit of
+;; repetition
+(define (compile-letrec-lambdas ls cenv)
+  (match ls
+    ['() (seq)]
+    [(cons f fs)
+     (match f
+       [(Lambda name params body)
+        (let ([frees (free-variables f)])
+          (seq
+           (Lea rax (Offset (symbol->label name) 0))
+           (Mov (Offset rbx 0) rax)
+           (Mov rax (length frees))
+           (Mov (Offset rbx 8) rax)
+           (Mov rax rbx)
+           (Or rax type-proc)
+           (Add rbx (* 8 (+ 2 (length frees))))
+           (Push rax)
+           (compile-letrec-lambdas fs (cons #f cenv))))])]))
+
+;; compile-letrec-init: [Symbol] x [Lambda] x CEnv -> ASM
+;; compile-letrec-init initializes the values in the closure.
+;; This has to be done because we want to associate the closures to the
+;; variables first. This way, if we reference another function in the
+;; body of the nth function, we have the value of the pointer in the
+;; extended environment
+(define (compile-letrec-init vars ls cenv)
+  (match vars
+    ['() (seq)]
+    [(cons v vs)
+     ;; (first ls) because that's the lambda that corresponds
+     ;; to the current variable, v
+     (let ([frees (free-variables (first ls))])
+
+       (seq
+        ;; Move the closure's reference to r9. Remember, by now
+        ;; the variable v is bound to an unitialized closure; this
+        ;; returns the function pointer to r9
+        (Mov r9 (Offset rbx (lookup v cenv)))
+        ;; Strip off the tag so we can use the address
+        (Xor r9 type-proc)
+
+        (Add r9 16) ;; skip to the env
+        (copy-env-to-heap frees cenv 0)
+        (compile-letrec-init vs (rest ls) cenv)))]))
+
+;; Lambdas
+;;
+;; compile-lambda: Symbol x [Vars] x Cenv -> ASM
+;; compile-lambda produces the instructions to compile a
+;; closure. A closure is simply a context, a structure to hold
+;; a lambda's information
+(define (compile-lambda name params frees cenv)
+  (seq
+   ;; Load the function's address to rax
+   ;; and move it to the heap
+   (Lea rax (symbol->label name))
+   (Mov (Offset rbx 0) rax)
+
+   ;; Save the environment
+   ;; For this we must know how much memory we need, and
+   ;; we then make space for it in the heap
+   ;;
+   ;; Move the amount of free vars to the next address
+   (Mov r8 (length frees))
+   (Mov (Offset rbx 8) r8)
+
+   ;; Move the heap's address to r9 and skip the label and
+   ;; the length, and copy the environment to the heap
+   (Mov r9 rbx)
+   (Add r9 16)
+   (copy-env-to-heap frees cenv 0)
+
+   ;; Return a pointer to the closure:
+   ;; Move the address to rax and tag it, and allocate
+   ;; the space, which is the amount of stuff + the length + label
+   (Mov rax rbx)
+   (Or rax type-proc)
+   (Add rbx (* 8 (+ 2 (length frees))))))
+
+;; copy-env-to-heap: [Vars] x CEnv x Int -> ASM
+;; Generates code that actually moves the env values onto the
+;; heap.
+(define (copy-env-to-heap frees cenv offset)
+  (match frees
+    ['() (seq)]
+    [(cons v vars)
+     (seq
+      ;; Lookup the variable
+      (Mov r8 (Offset rsp (lookup v cenv)))
+
+      ;; Put it in the heap
+      ;; We use r9 because that's where the
+      ;; environment starts. If we use rbx, we'll clobber
+      ;; the label and length(!)
+      (Mov (Offset r9 offset) r8)
+      (copy-env-to-heap vars cenv (+ 8 offset)))]))
+
 ;; Function application (App)
 (define (compile-app f args cenv)
   (if (even? (+ (length args) (length cenv)))
@@ -379,7 +538,6 @@
            (Add rsp (* 8 (length args))))
 
       ;; If it is not aligned, adjust the stack by growing the stack
-      ;; Then compile the expressions with the padded environment
       ;; Lastly, call the function and popoff the arguments and the
       ;; extra space that was padded
       (seq (Sub rsp 8)
@@ -449,6 +607,105 @@
      (seq (compile-e e cenv)
           (Push rax)
           (compile-es es (cons #f cenv)))]))
+
+
+;; compile-call: Expr x [Vars] x CEnv -> ASM
+;; compile-call takes an expression, asserts it's a function pointer
+;; and then moves its args to the stack, passing along the environment
+;; captured in the closure
+(define (compile-call f args cenv)
+  (let* ([num-args (length args)]
+         [aligned (even? (+ num-args (length cenv)))]
+         [i (if aligned 1 2)]
+         [env+ (if aligned
+                   cenv
+                   (cons #f cenv))]
+         [env++ (cons #f env+)]) ;; See compile-lambda-definitions
+
+    (seq
+     ;; Align the stack if necessary
+     (if aligned
+         (seq)
+         (Sub rsp 8))
+
+     ;; Generate the code for f, which puts its result in rax
+     ;; so we can push that onto the stack
+     ;;
+     ;; Since f is (allegedly) a lambda, this means not only that we
+     ;; get the pointer back at rax, but also that we have pushed the
+     ;; amount of free variables onto the heap, see compile-lambda
+     (compile-e f env+)
+     (Push rax)
+
+     ;; Then, we generate the code for evaluating the args
+     ;; We use env++ because we have the extra #f padding
+     ;; (which stands for the function expression we just generated)
+     ;; compile-es pushes args onto the stack
+     (compile-es args env++)
+
+     ;; Now, we fetch what is supposed to be the function
+     ;; pointer from the stack, we assert it is and remove the tag
+     (Mov rax (Offset rsp (* 8 num-args)))
+     (assert-proc rax cenv) ;; TODO: update assert-type and calls to assert-*
+     (Xor rax type-proc)
+
+     ;; The function pointer points to a closure, so we must
+     ;; copy the closure environment onto the stack
+     (copy-closure-env-to-stack)
+
+     ;; We move the size of the environment onto the stack
+     ;; Again, the next thing in memory from the address is the amount
+     ;; of free variables
+     (Mov rcx (Offset rax 8))
+     (Push rcx)
+
+     (Call (Offset rax 0))
+
+     ;; Get the size of the environment off the stack
+     (Pop rcx)
+     (Sal rcx 3)
+
+     ;; Pop the arguments
+     (Add rsp (* 8 (+ i num-args))) ;; Accounts for args and padding
+     (Add rsp rcx)))) ;; Accounts for the closure
+
+;; copy-closure-env-to-stack -> ASM
+;; copy-closure-env-to-stack generates the instructions needed to copy
+;; a closure provided that we fulfill the invariant of having a
+;; function pointer at rax
+(define (copy-closure-env-to-stack)
+  (let ([loop-label (symbol->label (gensym 'copy_closure))]
+        [done-label (symbol->label (gensym 'copy_done))])
+
+    (seq
+
+     ;; Get the length of the closure
+     (Mov r8 (Offset rax 8))
+
+     (Mov r9 rax)
+     ;; This is where the closure's env starts
+     ;; Again, we skip over the function pointer and the length
+     (Add r9 16)
+
+     ;; We start the copy
+     (Label loop-label)
+     ;; Are there no more things left to copy?
+     (Cmp r8 0)
+     (Je done-label) ;; if so, jump to the end
+
+     ;; If not:
+     ;; - Move whatever is pointed to by r9 to the stack
+     ;; - Increment r9
+     ;; - decrement r8
+     ;; - Jump back to the loop-label
+     (Mov rcx (Offset r9 0))
+     (Push rcx)
+     (Add r9 8)
+     (Sub r8 1)
+     (Jmp loop-label)
+
+     ;; We are done
+     (Label done-label))))
 
 ;; Lookup
 ;; Lookup iterates over the environment and
@@ -530,6 +787,9 @@
 
 (define assert-cons
   (assert-type ptr-mask type-cons))
+
+(define assert-proc
+  (assert-type ptr-mask type-proc))
 
 ;; This is basically the comparison
 ;; we made in the interpreter

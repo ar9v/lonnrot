@@ -30,6 +30,9 @@
 (define type-cons #b010)
 (define val-empty #b10011000)
 
+;; Functions
+(define type-proc #b100)
+
 (define (bits->value b)
   (cond [(= type-int (bitwise-and b #b1))
          ;; We shift b right by 1 bit, i.e. we drop

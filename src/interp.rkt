@@ -31,14 +31,14 @@
 ;; interp: Program -> Answer
 ;; Program: Function definitions and an expression
 (define (interp p)
-  (match p
-    [(Prog defs e)
-     (interp-env e '() defs)]))
+  (interp-env (desugar p) '()))
 
 ;; interp-env: Expr x Env x Defs -> Answer
 ;; interp-env: takes an AST Node, an Environment and
 ;; a list of function definitions and produces an answer with them
-(define (interp-env e env defs)
+;; UPDATE (loot): since we have lambdas and desugaring, we don't need
+;; to pass around the defs anymore
+(define (interp-env e env)
   (match e
     ;; Values
     [(Int i)  i]
@@ -47,74 +47,91 @@
     [(Eof)    eof]
     [(Empty)  '()]
     [(Var x) (lookup x env)]
+    [(Lambda _ params body)
+     (lambda vs
+       ;; First, we check that the lambda has correct arity
+       (if (= (length vs) (length params))
+           ;; If it does, we simply produce the lambda by zipping
+           ;; together the interpreter environment with the bindings
+           (interp-env body (append (zip params vs) env))
+           ;; If it doesn't we signal an error
+           'err))]
 
     ;; Primitives
     [(Prim0 p)
      (interp-prim0 p)]
 
     [(Prim1 p e)
-     (match (interp-env e env defs)
+     (match (interp-env e env)
        ['err 'err]
        [v (interp-prim1 p v)])]
 
     [(Prim2 p e1 e2)
-     (match (interp-env e1 env defs)
+     (match (interp-env e1 env)
        ['err 'err]
-       [v1 (match (interp-env e2 env defs)
+       [v1 (match (interp-env e2 env)
              ['err 'err]
              [v2 (interp-prim2 p v1 v2)])])]
 
     ;; Control
     [(If e1 e2 e3)
-     (match (interp-env e1 env defs)
+     (match (interp-env e1 env)
        ['err 'err]
        [v (if v
-              (interp-env e2 env defs)
-              (interp-env e3 env defs))])]
+              (interp-env e2 env)
+              (interp-env e3 env))])]
 
     ;; Sequencing
     [(Begin e1 e2)
-     (match (interp-env e1 env defs)
+     (match (interp-env e1 env)
        ['err 'err]
-       [_ (interp-env e2 env defs)])]
+       [_ (interp-env e2 env)])]
 
     ;; Binding
     [(Let x e1 e2)
-     (match (interp-env e1 env defs)
+     (match (interp-env e1 env)
        ['err 'err]
-       [v (interp-env e2 (ext env x v) defs)])]
+       [v (interp-env e2 (ext env x v))])]
+
+    ;; This letrec implementation is, to my understanding,
+    ;; closer to `fix` than regular old letrec. Check Dybvig's paper
+    [(LetRec bindings body)
+     (letrec ((env* (lambda ()
+                      (append
+                       (zip (map car bindings)
+                            ;; η-expansion to delay evaluating r*
+                            ;; relies on RHSs being functions
+                            (map (lambda (l) (lambda vs (apply (interp-env l (env*)) vs)))
+                                 (map cadr bindings)))
+                       env))))
+       (interp-env body (env*)))]
 
     ;; Function Application
     ;; Lonnrot is strict call by value, left to right evaluation of the arguments
     ;; and it is eval/apply (i.e. we evaluate the arguments and /then/ we check
     ;; if the function exists)
-    [(App f es)
-     (match (interp-env* es env defs)
-       ;; If interp-env* succeeds, we get a list of answers...
-       [(list vs ...)
-        ;; ...and we need to check if the function exists
-        (match (lookup-fn f defs)
-          ;; If the function exists, then check its arity
-          [(Defn fn params body)
-           (if (= (length params) (length vs))
-               (interp-env body (zip params vs) defs)
-               'err)])]
+    [(App expr es)
+     (let ([f (interp-env expr env)]
+           [args (interp-env* es env)])
 
-       ;; If we get anything other than a list of answers we have an error
-       [_ 'err])]))
+       (if (procedure? f)
+           (apply f args)
+           'err))]
+
+    [(Prog '() e) (interp-env e env)]))
 
 ;; interp-env*: [Exprs] x Environment x Function Definitions
 ;; -> [Answers] | 'err
 ;;
 ;; interp-env*: Takes a list of expressions and returns either the
 ;; list of their answers or an error
-(define (interp-env* es env defs)
+(define (interp-env* es env)
   (match es
     ['() '()]
     [(cons e es)
-     (match (interp-env e env defs)
+     (match (interp-env e env)
        ['err 'err]
-       [v (cons v (interp-env* es env defs))])]))
+       [v (cons v (interp-env* es env))])]))
 
 ;; lookup-fn: Defn x [Defn] -> Defn | 'err
 ;; (lookup-fn fn defs) looks up fn in defs. It uses `findf` because it returns #f or
