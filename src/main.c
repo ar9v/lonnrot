@@ -91,6 +91,9 @@ void print_result(int64_t result) {
         printf("#&");
         print_result(*((int64_t *)(result ^ BOX_TYPE_TAG)));
     }
+    else if(PROC_TYPE_TAG == (PTR_TYPE_MASK & result)) {
+       printf("<procedure>");
+    }
     else if(INT_TYPE_TAG == (INT_TYPE_MASK & result)) {
         printf("%" PRId64, result >> INT_SHIFT);
     }

@@ -58,27 +58,6 @@
       ;; scattered lambdas. We retrieve them and compile them
       (compile-lambda-definitions (get-lambdas expr)))]))
 
-(define (compile-lambda-definition l)
-  (match l
-    [(Lambda '() _ _) (error "Lambdas must be labeled to be compiled")]
-    [(Lambda name params body)
-     (let* ((free-vars (remq* params (free-variables body)))
-            (env (parity (cons #f (cons #f (reverse (append params free-vars)))))))
-
-       (seq (Label (symbol->label name))
-            ;; TODO: tail calls
-            (compile-e body env)
-            (Ret)))]))
-
-(define (compile-lambda-definitions ls)
-  ;; JMCT wraps everything in seq but is it really necessary?
-  (match ls
-    ['() (seq)]
-    [(cons d ds)
-     (seq (compile-lambda-definition d)
-          (compile-lambda-definitions ds))]))
-
-;; compile-define: Defn
 ;; To compile a function definition we have to
 ;; - Provide an ASM conformant label
 ;; - Compile the body with an environment made up of the
@@ -90,17 +69,28 @@
 ;; (cons #f (reverse params))
 ;; That #f represents the space that is used when Call pushes the
 ;; return pointer onto the stack.
-(define (compile-define d)
-  (match d
-    [(Defn f params body)
-     (let ((env (parity (cons #f (reverse params)))))
-        (seq (Label (symbol->label f))
-             ;; UPDATE (jig):
-             ;; We want to compile this as a tail call. To this effect we propagate
-             ;; the amount of params we have, as this is quantity is what we'll have to
-             ;; "skip" when moving values around in memory
-             (compile-tail-e body env (length params))
-             (Ret)))]))
+;; UPDATE (jig):
+;; We want to compile this as a tail call. To this effect we propagate
+;; the amount of params we have, as this is quantity is what we'll have to
+;; "skip" when moving values around in memory
+(define (compile-lambda-definition l)
+  (match l
+    [(Lambda '() _ _) (error "Lambdas must be labeled to be compiled")]
+    [(Lambda name params body)
+     (let* ((free-vars (remq* params (free-variables body)))
+            (env (parity (cons #f (cons #f (reverse (append params free-vars)))))))
+
+       (seq (Label (symbol->label name))
+            (compile-e body env)
+            (Ret)))]))
+
+(define (compile-lambda-definitions ls)
+  ;; JMCT wraps everything in seq but is it really necessary?
+  (match ls
+    ['() (seq)]
+    [(cons d ds)
+     (seq (compile-lambda-definition d)
+          (compile-lambda-definitions ds))]))
 
 ;; We append (#f) rather than cons it so we
 ;; because we want to align the stack, but not shift
@@ -115,14 +105,6 @@
       (append cenv (list #f))
       cenv))
 
-(define (compile-defines ds)
-  (match ds
-    ['() (seq)]
-    [(cons d ds)
-     (seq (compile-define d)
-          (compile-defines ds))]))
-
-
 ;; compile-tail-e: AST Expr x CEnv x Int -> Asm (x86)
 ;; compile-tail-e takes an expression represented as an AST node,
 ;; a Compile Time Environment and the Amount of things that need
@@ -135,12 +117,15 @@
 (define (compile-tail-e expr cenv size)
   (match expr
     [(If p c a)     (compile-tail-if p c a cenv size)]
-    [(Let x e1 e2)  (compile-tail-let x e1 e2 cenv size)]
     [(Begin e1 e2)  (compile-tail-begin e1 e2 cenv size)]
-    ;; [(App f args)   (if (<= (length args) size)
-    ;;                     (compile-tail-call f args cenv)
-    ;;                     (compile-app f args cenv))]
-    [(App f args)   (compile-call f args cenv)]
+    [(Let x e1 e2)  (compile-tail-let x e1 e2 cenv size)]
+    [(LetRec bindings body)
+     (compile-tail-letrec (map car bindings) (map cadr bindings) body cenv)]
+    [(App f args)
+     (if (<= (length args) size)
+         (compile-tail-call f args cenv)
+         (compile-call f args cenv))]
+
     [_              (compile-e expr cenv)]))
 
 ;; compile-e: AST x CEnv -> Asm (x86 AST)
@@ -170,13 +155,13 @@
     [(Begin e1 e2)     (compile-begin e1 e2 cenv)]
     [(Let x e1 e2)     (compile-let x e1 e2 cenv)]
     [(LetRec bindings body)
+
      (compile-letrec (map car bindings)
                      (map cadr bindings)
                      body
                      cenv)]
 
     ;; Function Application
-    ;;[(App f es)        (compile-app f es cenv)]))
     [(App f args) (compile-call f args cenv)]))
 
 
@@ -228,17 +213,17 @@
   (match p
     ;; Increment/Decrement
     ['add1
-     (seq (assert-integer rax cenv)
+     (seq (assert-integer rax)
           (Add rax (immediate->bits 1)))]
 
     ['sub1
-     (seq (assert-integer rax cenv)
+     (seq (assert-integer rax)
           (Sub rax (immediate->bits 1)))]
 
     ;; Predicates
     ['zero?
      (let ([l1 (gensym)])
-       (seq (assert-integer rax cenv)
+       (seq (assert-integer rax)
             (Cmp rax 0)
             (Mov rax val-true)
             (Je l1)
@@ -266,19 +251,19 @@
     ;; we strip their respective type tags, and then
     ;; add the target type's type tag
     ['char->integer
-     (seq (assert-char rax cenv)
+     (seq (assert-char rax)
           (Sar rax char-shift)
           (Sal rax int-shift))]
 
     ['integer->char
-     (seq (assert-codepoint cenv)
+     (seq assert-codepoint
           (Sar rax int-shift)
           (Sal rax char-shift)
           (Xor rax type-char))]
 
     ;; IO
     ['write-byte
-     (seq (assert-byte cenv)
+     (seq assert-byte
           (pad-stack cenv)
           (Mov rdi rax)
           (Call 'write_byte)
@@ -298,12 +283,12 @@
           (Mov rax (Offset rax 0)))]
 
     ['car
-     (seq (assert-cons rax cenv)
+     (seq (assert-cons rax)
           (Xor rax type-cons)
           (Mov rax (Offset rax 8)))]
 
     ['cdr
-     (seq (assert-cons rax cenv)
+     (seq (assert-cons rax)
           (Xor rax type-cons)
           (Mov rax (Offset rax 0)))]))
 
@@ -314,8 +299,8 @@
     ;; first operand is in the stack, and our second operand
     ;; has been compiled with the #f-extended environment
     ['+ (seq (Pop r8)
-             (assert-integer r8 cenv)  ;; Check operand 1 is an integer
-             (assert-integer rax cenv) ;; Check operand 2 is an integer
+             (assert-integer r8)  ;; Check operand 1 is an integer
+             (assert-integer rax) ;; Check operand 2 is an integer
              (Add rax r8))]
 
     ;; The procedure is very similar. However, since r8 is our
@@ -323,8 +308,8 @@
     ;; subtract rax from r8, which leaves the result in r8, hence
     ;; the last Mov instruction
     ['- (seq (Pop r8)
-             (assert-integer r8 cenv)
-             (assert-integer rax cenv)
+             (assert-integer r8)
+             (assert-integer rax)
              (Sub r8 rax)
              (Mov rax r8))]
 
@@ -414,13 +399,20 @@
    ;; Then, since we have already bound all variables to the prospective
    ;; closures, we can safely initialize the closures with the complete
    ;; context...
-   (compile-letrec-init lhs fs (append (reverse fs) cenv))
+   (compile-letrec-init lhs fs (append (reverse lhs) cenv))
 
    ;; ... which lets us compile the body in the freshly extended env
-   (compile-e body (append (reverse fs) cenv))
+   (compile-e body (append (reverse lhs) cenv))
 
    ;; And we deallocate the space
    (Add rsp (* 8 (length fs)))))
+
+(define (compile-tail-letrec lhs fs body cenv)
+  (seq
+   (compile-letrec-lambdas fs cenv)
+   (compile-letrec-init lhs fs (append (reverse lhs) cenv))
+   (compile-tail-e body (append (reverse lhs) cenv))
+   (Add rsp (* (length fs)))))
 
 ;; compile-letrec-lambdas: [Lambda] x CEnv -> ASM
 ;; compile-letrec-lambdas pushes uninitialized closures
@@ -437,7 +429,7 @@
        [(Lambda name params body)
         (let ([frees (free-variables f)])
           (seq
-           (Lea rax (Offset (symbol->label name) 0))
+           (Lea rax (symbol->label name))
            (Mov (Offset rbx 0) rax)
            (Mov rax (length frees))
            (Mov (Offset rbx 8) rax)
@@ -465,7 +457,7 @@
         ;; Move the closure's reference to r9. Remember, by now
         ;; the variable v is bound to an unitialized closure; this
         ;; returns the function pointer to r9
-        (Mov r9 (Offset rbx (lookup v cenv)))
+        (Mov r9 (Offset rsp (lookup v cenv)))
         ;; Strip off the tag so we can use the address
         (Xor r9 type-proc)
 
@@ -525,32 +517,73 @@
       (Mov (Offset r9 offset) r8)
       (copy-env-to-heap vars cenv (+ 8 offset)))]))
 
-;; Function application (App)
-(define (compile-app f args cenv)
-  (if (even? (+ (length args) (length cenv)))
+;; compile-call: Expr x [Vars] x CEnv -> ASM
+;; compile-call takes an expression, asserts it's a function pointer
+;; and then moves its args to the stack, passing along the environment
+;; captured in the closure
+(define (compile-call f args cenv)
+  (let* ([num-args (length args)]
+         [aligned (even? (+ num-args (length cenv)))]
+         [i (if aligned 1 2)]
+         [env+ (if aligned
+                   cenv
+                   (cons #f cenv))]
+         [env++ (cons #f env+)]) ;; See compile-lambda-definitions
 
-      ;; If the stack is aligned, generate code for the arguments
-      ;; and  simply call the function
-      ;; After calling the function, pop off the arguments from
-      ;; the stack
-      (seq (compile-es args cenv)
-           (Call (symbol->label f))
-           (Add rsp (* 8 (length args))))
-
-      ;; If it is not aligned, adjust the stack by growing the stack
-      ;; Lastly, call the function and popoff the arguments and the
-      ;; extra space that was padded
-      (seq (Sub rsp 8)
-           (compile-es args cenv)
-           (Call (symbol->label f))
-           (Add rsp (* 8 (add1 (length args)))))))
-
-;; compile-tail-call: Symbol x [Exprs] x CEnv -> ASM
-(define (compile-tail-call f args cenv)
-  (let ([count (length args)])
     (seq
-     ;; Compile the arguments as usual
-     (compile-es args cenv)
+     ;; Align the stack if necessary
+     (if aligned
+         (seq)
+         (Sub rsp 8))
+
+     ;; Generate the code for f, which puts its result in rax
+     ;; so we can push that onto the stack
+     ;;
+     ;; Since f is (allegedly) a lambda, this means not only that we
+     ;; get the pointer back at rax, but also that we have pushed the
+     ;; amount of free variables onto the heap, see compile-lambda
+     (compile-e f env+)
+     (Push rax)
+
+     ;; Then, we generate the code for evaluating the args
+     ;; We use env++ because we have the extra #f padding
+     ;; (which stands for the function expression we just generated)
+     ;; compile-es pushes args onto the stack
+     (compile-es args env++)
+
+     ;; Now, we fetch what is supposed to be the function
+     ;; pointer from the stack, we assert it is and remove the tag
+     (Mov rax (Offset rsp (* 8 num-args)))
+     (assert-proc rax)
+     (Xor rax type-proc)
+
+     ;; The function pointer points to a closure, so we must
+     ;; copy the closure environment onto the stack
+     (copy-closure-env-to-stack)
+
+     ;; We move the size of the environment onto the stack
+     ;; Again, the next thing in memory from the address is the amount
+     ;; of free variables
+     (Mov rcx (Offset rax 8))
+     (Push rcx)
+
+     (Call (Offset rax 0))
+
+     ;; Get the size of the environment off the stack
+     (Pop rcx)
+     (Sal rcx 3)
+
+     ;; Pop the arguments
+     (Add rsp (* 8 (+ i num-args))) ;; Accounts for args and padding
+     (Add rsp rcx)))) ;; Accounts for the closure
+
+;; compile-tail-call: Expr x [Exprs] x CEnv -> ASM
+(define (compile-tail-call f args cenv)
+  (let ([num-args (length args)])
+    (seq
+     (compile-e f cenv)
+     (Push rax)
+     (compile-es args (cons #f cenv))
 
      ;; Now move them to the stack spaces that we can clobber
      ;; These are at rsp offsets whose distances are
@@ -559,12 +592,60 @@
      ;; we call a function inside a `let`)
      ;;
      ;;  0 | arg1 | arg2 | frame-var 1 | ... | #f (return pointer) | free real estate | ...
-     (move-args count (+ count (in-frame cenv)))
+     ;;  UPDATE (loot): we now acnum-args for the function pointer and the length
+     (move-args num-args (+ num-args (+ 2 (in-frame cenv))))
+
+     ;; Retrieve the function pointer, assert and untag
+     (Mov rax (Offset rsp (* 8 num-args)))
+     (assert-proc rax)
+     (Xor rax type-proc)
 
      ;; We can finally shave off the upper part of the stack up until
      ;; the return pointer, since we reused the old frame!
-     (Add rsp (* 8 (+ count (in-frame cenv))))
-     (Jmp (symbol->label f)))))
+     ;; Again, we account for the function pointer and the length
+     (Add rsp (* 8 (+ num-args (+ 2 (in-frame cenv)))))
+
+     (copy-closure-env-to-stack)
+
+     (Jmp (Offset rax 0)))))
+
+;; copy-closure-env-to-stack -> ASM
+;; copy-closure-env-to-stack generates the instructions needed to copy
+;; a closure provided that we fulfill the invariant of having a
+;; function pointer at rax
+(define (copy-closure-env-to-stack)
+  (let ([loop-label (symbol->label (gensym 'copy_closure))]
+        [done-label (symbol->label (gensym 'copy_done))])
+
+    (seq
+
+     ;; Get the length of the closure
+     (Mov r8 (Offset rax 8))
+
+     (Mov r9 rax)
+     ;; This is where the closure's env starts
+     ;; Again, we skip over the function pointer and the length
+     (Add r9 16)
+
+     ;; We start the copy
+     (Label loop-label)
+     ;; Are there no more things left to copy?
+     (Cmp r8 0)
+     (Je done-label) ;; if so, jump to the end
+
+     ;; If not:
+     ;; - Move whatever is pointed to by r9 to the stack
+     ;; - Increment r9
+     ;; - decrement r8
+     ;; - Jump back to the loop-label
+     (Mov rcx (Offset r9 0))
+     (Push rcx)
+     (Add r9 8)
+     (Sub r8 1)
+     (Jmp loop-label)
+
+     ;; We are done
+     (Label done-label))))
 
 ;; move-args: Int x Int -> ASM
 ;; move-args checks how many args are left to move and how many spaces (i.e. the offset)
@@ -607,105 +688,6 @@
      (seq (compile-e e cenv)
           (Push rax)
           (compile-es es (cons #f cenv)))]))
-
-
-;; compile-call: Expr x [Vars] x CEnv -> ASM
-;; compile-call takes an expression, asserts it's a function pointer
-;; and then moves its args to the stack, passing along the environment
-;; captured in the closure
-(define (compile-call f args cenv)
-  (let* ([num-args (length args)]
-         [aligned (even? (+ num-args (length cenv)))]
-         [i (if aligned 1 2)]
-         [env+ (if aligned
-                   cenv
-                   (cons #f cenv))]
-         [env++ (cons #f env+)]) ;; See compile-lambda-definitions
-
-    (seq
-     ;; Align the stack if necessary
-     (if aligned
-         (seq)
-         (Sub rsp 8))
-
-     ;; Generate the code for f, which puts its result in rax
-     ;; so we can push that onto the stack
-     ;;
-     ;; Since f is (allegedly) a lambda, this means not only that we
-     ;; get the pointer back at rax, but also that we have pushed the
-     ;; amount of free variables onto the heap, see compile-lambda
-     (compile-e f env+)
-     (Push rax)
-
-     ;; Then, we generate the code for evaluating the args
-     ;; We use env++ because we have the extra #f padding
-     ;; (which stands for the function expression we just generated)
-     ;; compile-es pushes args onto the stack
-     (compile-es args env++)
-
-     ;; Now, we fetch what is supposed to be the function
-     ;; pointer from the stack, we assert it is and remove the tag
-     (Mov rax (Offset rsp (* 8 num-args)))
-     (assert-proc rax cenv) ;; TODO: update assert-type and calls to assert-*
-     (Xor rax type-proc)
-
-     ;; The function pointer points to a closure, so we must
-     ;; copy the closure environment onto the stack
-     (copy-closure-env-to-stack)
-
-     ;; We move the size of the environment onto the stack
-     ;; Again, the next thing in memory from the address is the amount
-     ;; of free variables
-     (Mov rcx (Offset rax 8))
-     (Push rcx)
-
-     (Call (Offset rax 0))
-
-     ;; Get the size of the environment off the stack
-     (Pop rcx)
-     (Sal rcx 3)
-
-     ;; Pop the arguments
-     (Add rsp (* 8 (+ i num-args))) ;; Accounts for args and padding
-     (Add rsp rcx)))) ;; Accounts for the closure
-
-;; copy-closure-env-to-stack -> ASM
-;; copy-closure-env-to-stack generates the instructions needed to copy
-;; a closure provided that we fulfill the invariant of having a
-;; function pointer at rax
-(define (copy-closure-env-to-stack)
-  (let ([loop-label (symbol->label (gensym 'copy_closure))]
-        [done-label (symbol->label (gensym 'copy_done))])
-
-    (seq
-
-     ;; Get the length of the closure
-     (Mov r8 (Offset rax 8))
-
-     (Mov r9 rax)
-     ;; This is where the closure's env starts
-     ;; Again, we skip over the function pointer and the length
-     (Add r9 16)
-
-     ;; We start the copy
-     (Label loop-label)
-     ;; Are there no more things left to copy?
-     (Cmp r8 0)
-     (Je done-label) ;; if so, jump to the end
-
-     ;; If not:
-     ;; - Move whatever is pointed to by r9 to the stack
-     ;; - Increment r9
-     ;; - decrement r8
-     ;; - Jump back to the loop-label
-     (Mov rcx (Offset r9 0))
-     (Push rcx)
-     (Add r9 8)
-     (Sub r8 1)
-     (Jmp loop-label)
-
-     ;; We are done
-     (Label done-label))))
 
 ;; Lookup
 ;; Lookup iterates over the environment and
@@ -770,11 +752,11 @@
 
 ;; Assertions
 (define (assert-type mask type)
-  (lambda (arg cenv)
+  (lambda (arg)
     (seq (Mov r9 arg)
          (And r9 mask)
          (Cmp r9 type)
-         (Jne (error-label cenv)))))
+         (Jne 'raise_error))))
 
 (define assert-integer
   (assert-type mask-int type-int))
@@ -797,29 +779,19 @@
   (let ([ok (gensym)])
     (seq (assert-integer rax cenv)
          (Cmp rax (immediate->bits 0))
-         (Jl (error-label cenv))
+         (Jl 'raise_error)
          (Cmp rax (immediate->bits 1114111))
-         (Jg (error-label cenv))
+         (Jg 'raise_error)
          (Cmp rax (immediate->bits 55295))
          (Jl ok)
          (Cmp rax (immediate->bits 57344))
          (Jg ok)
-         (Jmp (error-label cenv))
+         (Jmp 'raise_error)
          (Label ok))))
 
 (define (assert-byte cenv)
   (seq (assert-integer rax cenv)
        (Cmp rax (immediate->bits 0))
-       (Jl (error-label cenv))
+       (Jl 'raise_error)
        (Cmp rax (immediate->bits 255))
-       (Jg (error-label cenv))))
-
-;; Error labeling
-;; error-label: Cenv -> Label
-;;
-;; Since we now have more than one type of error
-;; we abstract the error checking
-;;
-;; Basically, if our stack is aligned, it means
-;; that the error is your normal 'err type
-(define (error-label cenv) 'raise_error)
+       (Jg 'raise_error)))

@@ -97,44 +97,48 @@
 ;;    (let ((x 4)) (+ x y))
 ;; `y` is free
 (define (free-variables expr)
-  (match expr
-    [(Var x) (list x)]
-    [(Prim1 p e) (free-variables expr)]
-    [(Prim2 p e1 e2) (append (free-variables e1) (free-variables e2))]
+  (define (free-variables expr)
+    (match expr
+      [(Var x) (list x)]
+      [(Prim1 p e) (free-variables e)]
+      [(Prim2 p e1 e2) (append (free-variables e1) (free-variables e2))]
 
-    [(If p c a) (append (free-variables p) (free-variables c) (free-variables a))]
+      [(If p c a) (append (free-variables p) (free-variables c) (free-variables a))]
 
-    [(Begin e1 e2) (append (free-variables e1) (free-variables e2))]
+      [(Begin e1 e2) (append (free-variables e1) (free-variables e2))]
 
-    ;; For `let` we can't simply append all free variables, precisely because
-    ;; `let` binds a value to x. Thus, the free variables in e2 are the free
-    ;; variables sans the bound values.
-    [(Let x e1 e2)
-     (append (free-variables e1)
-             (remq* (list x) (free-variables e2)))]
+      ;; For `let` we can't simply append all free variables, precisely because
+      ;; `let` binds a value to x. Thus, the free variables in e2 are the free
+      ;; variables sans the bound values.
+      [(Let x e1 e2)
+       (append (free-variables e1)
+               (remq* (list x) (free-variables e2)))]
 
-    [(LetRec bindings body)
-     ;; Bindings in `let` are a list of lists, where the first element
-     ;; is the symbol, so we simply map car
-     (let ([bound-vars-symbols (map car bindings)]
-           ;; For each binding, check its expression's free variables
-           [free-in-values (append-map free-in-let-def bindings)])
+      [(LetRec bindings body)
+       (displayln "free-vars matched LetRec")
+       ;; Bindings in `let` are a list of lists, where the first element
+       ;; is the symbol, so we simply map car
+       (let ([bound-vars-symbols (map car bindings)]
+             ;; For each binding, check its expression's free variables
+             [free-in-values (append-map free-in-let-def bindings)])
 
-       ;; Similar to let, the body's free variables are all of its trivially defined
-       ;; free variables sans those that were just bound
-       (remq* bound-vars-symbols (append free-in-values (free-variables body))))]
+         ;; Similar to let, the body's free variables are all of its trivially defined
+         ;; free variables sans those that were just bound
+         (remq* bound-vars-symbols (append free-in-values (free-variables body))))]
 
-    [(Lambda f params body) (remq* params (free-variables body))]
+      [(Lambda f params body) (remq* params (free-variables body))]
 
-    [(App expr args) (append (free-variables expr) (append-map free-variables args))]
+      [(App expr args) (append (free-variables expr) (append-map free-variables args))]
 
-    [_ '()]))
+      [_ '()]))
+  (remove-duplicates (free-variables expr)))
 
 ;; free-in-let-def: [Symbol Expr] -> [Vars]
 ;; free-in-let-def takes a list with a symbol and a value
 ;; (i.e. a binding list in a `let` form) and returns the
 ;; list of free variables in Expr
 (define (free-in-let-def definition)
+  (displayln "in free-in-let-def")
   (match definition
     [(list (? symbol? x) v) (free-variables v)]))
 

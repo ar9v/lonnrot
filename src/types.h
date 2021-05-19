@@ -7,6 +7,7 @@
 **   - Pointers (end in non-000)
 **     - Box  (001)
 **     - Pair (010)
+**     - Functions (100)
 **
 ** Masks are the same, but shifted by three bits, which allow us to
 ** represent pointers
@@ -83,3 +84,6 @@
 #define BOX_TYPE_TAG 1
 #define CONS_TYPE_TAG 2
 #define VAL_EMPTY ((4 << CHAR_SHIFT) | NONCHAR_TYPE_TAG)
+
+// FUNCTIONS
+#define PROC_TYPE_TAG 4

@@ -1,3 +1,12 @@
 #lang racket
 
-((let ((x 8)) (lambda (y) x)) 2)
+(letrec
+  ((even? (lambda (x)
+            (if (zero? x)
+              #t
+              (odd? (sub1 x)))))
+   (odd? (lambda (x)
+           (if (zero? x)
+             #f
+             (even? (sub1 x))))))
+  (even? 141))
