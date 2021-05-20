@@ -9,7 +9,7 @@ main.o: main.c
 %.o: %.s
 	nasm -f elf64 -o $@ $<
 
-%.s: %.rkt
+%.s: %.rot
 	racket -t compile-file.rkt -m $< > $@
 
 clean:
