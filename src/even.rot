@@ -1,5 +1,3 @@
-#lang racket
-
 (letrec ((even? (lambda (n)
                   (if (zero? n)
                       #t

@@ -292,6 +292,7 @@ TSWLatexianTemp*
 *.rai
 *.rao
 
-# Object files and assembly files
+# Object files, assembly files and lonnrot executables
 *.s
 *.o
+*.run

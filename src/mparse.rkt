@@ -199,6 +199,7 @@
 
     (pure (list prim arg1 arg2))))
 
+;; TODO: fix: this allows a primitive-n to have n-1 args
 (define prim/p
   (apply or/p
    (map try/p (list prim0/p prim1/p prim2/p))))
@@ -212,6 +213,30 @@
 
     (pure `(if ,p ,c ,a))))
 
+
+(define def/p
+  (do
+     (token/p (string/p "define"))
+      [defs <- (token/p (lst/p
+                         (many/p (token/p variable/p) #:min 1)))]
+     [body <- (token/p expr/p)]
+      (pure `(define ,defs ,body))))
+
+(define begin-defs/p
+  (do
+      (token/p (string/p "begin"))
+      [defs <- (many/p (try/p (lst/p def/p)) #:min 1)]
+      [e <- (token/p expr/p)]
+
+      (pure `(begin ,@defs ,e))))
+
+(define app/p
+  (do
+      [f <- (token/p variable/p)]
+      [args <- (many/p (token/p expr/p))]
+
+    (pure `(,f ,@args))))
+
 ;; TODO:
 ;; Currently, we try/p for whole parsers, which means that
 ;; if they fail, the error diagnoses that an unexpected ( was found
@@ -221,12 +246,14 @@
         variable/p
         (lst/p
          (or/p
+          (try/p begin-defs/p)
           quote/p
-          (try/p letrec/p)
+          (try/p if/p)
+          (try/p letrec/p) ;; ambiguity with `let`
           let/p
           lambda/p
           prim/p
-          if/p))))
+          app/p))))
 
 ;; DEFINITION
 ;; TODO: not yet supported in compiler
@@ -258,9 +285,9 @@
 ;;
 ;; It is called mread in following the reader/expander
 ;; terminology; the m is for megaparsack.
-(define (mread source)
+(define (mread source [filename ""])
   (parse-result!
-   (parse-string program/p source)))
+   (parse-string (parse*/p program/p) source filename)))
 
 (define (my-reader filename)
   (let ([filename-port (open-input-file filename)])

@@ -1,5 +1,3 @@
-#lang racket
-
 (begin
   (define (even? n)
     (if (zero? n)
