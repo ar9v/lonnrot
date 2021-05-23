@@ -50,14 +50,16 @@
   (cond [(integer? s)   (Int s)]
         [(boolean? s)   (Bool s)]
         [(char? s)      (Char s)]
-        [(symbol? s)    (Var s)]
         [(empty? s)     (Empty)]
         [else
          (match s
            ;; Nullary primitives (Prim0)
+           ;; We put eof first because it overlaps with symbol
            ['eof                    (Eof)]
+           [(? symbol? x)           (Var x)]
            [(list 'read-byte)       (Prim0 'read-byte)]
            [(list 'peek-byte)       (Prim0 'peek-byte)]
+           [(list 'void)            (Prim0 'void)]
 
            ;; Unary Primitives (Prim1)
            ;;;; Arithmetic primitives
@@ -78,6 +80,7 @@
 
            ;;;; Inductive data
            [(list 'quote (list))    (Empty)]
+           [''()                    (Empty)]
            [(list 'box e)           (Prim1 'box   (parse-e e))]
            [(list 'unbox e)         (Prim1 'unbox (parse-e e))]
            [(list 'car e)           (Prim1 'car   (parse-e e))]
@@ -87,6 +90,7 @@
            [(list '+ e1 e2)     (Prim2 '+ (parse-e e1) (parse-e e2))]
            [(list '- e1 e2)     (Prim2 '- (parse-e e1) (parse-e e2))]
            [(list 'cons e1 e2)  (Prim2 'cons (parse-e e1) (parse-e e2))]
+           [(list 'eq?   e1 e2)  (Prim2 'eq?  (parse-e e1) (parse-e e2))]
 
            ;; Control/Sequencing operators
            [(list 'begin e1 e2)

@@ -1,0 +1,3 @@
+#lang racket
+
+(eq? 1 1)

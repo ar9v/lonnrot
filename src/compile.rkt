@@ -315,12 +315,13 @@
 
     ['eq?
      (let ([l1 (gensym)])
-       (seq (Cmp rax (Offset rsp 0))
-            (Sub rsp 8)
-            (Mov rax val-true)
-            (Je l1)
-            (Mov rax val-false)
-            (Label l1)))]
+       (seq
+        (Pop r8)
+        (Cmp rax r8)
+        (Mov rax val-true)
+        (Je l1)
+        (Mov rax val-false)
+        (Label l1)))]
 
     ['cons
      (seq (Mov (Offset rbx 0) rax)
@@ -775,9 +776,9 @@
 
 ;; This is basically the comparison
 ;; we made in the interpreter
-(define (assert-codepoint cenv)
+(define assert-codepoint
   (let ([ok (gensym)])
-    (seq (assert-integer rax cenv)
+    (seq (assert-integer rax)
          (Cmp rax (immediate->bits 0))
          (Jl 'raise_error)
          (Cmp rax (immediate->bits 1114111))

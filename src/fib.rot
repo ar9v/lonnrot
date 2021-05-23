@@ -1,0 +1,17 @@
+#lang racket
+
+(letrec ((fib (lambda (n)
+               (if (eq? n 0)
+                   0
+                   (if (eq? n 1)
+                       1
+                       (+ (fib (sub1 n))
+                          (fib (- n 2)))))))
+
+          (fib-tail 
+            (lambda (x f s)
+              (if (eq? x 0) 
+                  f
+                  (fib-tail (sub1 x) s (+ f s))))))
+
+    (fib-tail 10 0 1))

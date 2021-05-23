@@ -291,3 +291,7 @@ TSWLatexianTemp*
 # Rail package files
 *.rai
 *.rao
+
+# Object files and assembly files
+*.s
+*.o
