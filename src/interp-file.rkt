@@ -17,4 +17,4 @@
     (begin
       (read-line program-port)
       (displayln (interp (parse (read program-port))))
-      (close-input-port))))
+      (close-input-port program-port))))

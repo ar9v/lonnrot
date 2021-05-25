@@ -89,12 +89,13 @@
            ;; Binary Primitives (Prim2)
            [(list '+ e1 e2)     (Prim2 '+ (parse-e e1) (parse-e e2))]
            [(list '- e1 e2)     (Prim2 '- (parse-e e1) (parse-e e2))]
+           [(list '* e1 e2)     (Prim2 '* (parse-e e1) (parse-e e2))]
            [(list 'cons e1 e2)  (Prim2 'cons (parse-e e1) (parse-e e2))]
            [(list 'eq?   e1 e2)  (Prim2 'eq?  (parse-e e1) (parse-e e2))]
 
            ;; Control/Sequencing operators
-           [(list 'begin e1 e2)
-            (Begin (parse-e e1) (parse-e e2))]
+           [(list 'begin args ...)
+            (Begin (map parse-e args))]
            [(list 'if e1 e2 e3)
             (If (parse-e e1) (parse-e e2) (parse-e e3))]
 

@@ -117,7 +117,7 @@
 (define (compile-tail-e expr cenv size)
   (match expr
     [(If p c a)     (compile-tail-if p c a cenv size)]
-    [(Begin e1 e2)  (compile-tail-begin e1 e2 cenv size)]
+    [(Begin args)  (compile-tail-begin args cenv size)]
     [(Let x e1 e2)  (compile-tail-let x e1 e2 cenv size)]
     [(LetRec bindings body)
      (compile-tail-letrec (map car bindings) (map cadr bindings) body cenv)]
@@ -152,7 +152,7 @@
 
     ;; Control, Sequencing, Variable bindings
     [(If e1 e2 e3)     (compile-if e1 e2 e3 cenv)]
-    [(Begin e1 e2)     (compile-begin e1 e2 cenv)]
+    [(Begin args)     (compile-begin args cenv)]
     [(Let x e1 e2)     (compile-let x e1 e2 cenv)]
     [(LetRec bindings body)
 
@@ -303,6 +303,11 @@
              (assert-integer rax) ;; Check operand 2 is an integer
              (Add rax r8))]
 
+    ;; ['* (seq (Pop r8)
+    ;;          (assert-integer r8)
+    ;;          (assert-integer rax)
+    ;;          ())]
+
     ;; The procedure is very similar. However, since r8 is our
     ;; /first/ operand and subtraction is NOT commutative, we must
     ;; subtract rax from r8, which leaves the result in r8, hence
@@ -357,13 +362,19 @@
          (Label l2))))
 
 ;; Sequence
-(define (compile-begin e1 e2 cenv)
-  (seq (compile-e e1 cenv)
-       (compile-e e2 cenv)))
+(define (compile-begin args cenv)
+  (match args
+    ['() (seq)]
+    [(cons e es)
+     (seq (compile-e e cenv)
+          (compile-begin (cdr args) cenv))]))
 
-(define (compile-tail-begin e1 e2 cenv size)
-  (seq (compile-e e1 cenv)
-       (compile-tail-e e2 cenv size)))
+(define (compile-tail-begin args cenv size)
+  (match args
+    [(cons e '()) (seq (compile-tail-begin e cenv size))]
+    [(cons e es)
+     (seq (compile-e e cenv)
+          (compile-tail-begin (cdr args) cenv size))]))
 
 ;; Variable bindings (let)
 ;; To bind a variable is to
@@ -790,8 +801,8 @@
          (Jmp 'raise_error)
          (Label ok))))
 
-(define (assert-byte cenv)
-  (seq (assert-integer rax cenv)
+(define assert-byte
+  (seq (assert-integer rax)
        (Cmp rax (immediate->bits 0))
        (Jl 'raise_error)
        (Cmp rax (immediate->bits 255))

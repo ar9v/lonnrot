@@ -190,7 +190,7 @@
 ;; Begin was treated as a separate operation in the course
 ;; We would ideally like to have an n-ary begin, but for now
 ;; this also works
-(define ops2 '(eq? + - cons begin))
+(define ops2 '(eq? + - * cons))
 (define prim2/p
   (do
     [prim <- (token/p (guard/p variable/p (lambda (t) (member t ops2))))]

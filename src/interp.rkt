@@ -82,10 +82,7 @@
               (interp-env e3 env))])]
 
     ;; Sequencing
-    [(Begin e1 e2)
-     (match (interp-env e1 env)
-       ['err 'err]
-       [_ (interp-env e2 env)])]
+    [(Begin args) (interp-begin args env)]
 
     ;; Binding
     [(Let x e1 e2)
@@ -119,6 +116,15 @@
            'err))]
 
     [(Prog '() e) (interp-env e env)]))
+
+
+(define (interp-begin args env)
+  (match args
+    [(cons arg '()) (interp-env arg env)]
+    [(cons a as)
+     (match (interp-env a env)
+       ['err 'err]
+       [v (interp-begin as env)])]))
 
 ;; interp-env*: [Exprs] x Environment x Function Definitions
 ;; -> [Answers] | 'err

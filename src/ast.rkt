@@ -68,7 +68,7 @@
 
 ;; Conditional, Sequencing
 (struct If (e1 e2 e3)             #:prefab)
-(struct Begin (e1 e2)             #:prefab)
+(struct Begin (args)              #:prefab)
 
 ;; Variable binding
 (struct Let (x e1 e2)             #:prefab)
@@ -105,7 +105,7 @@
 
       [(If p c a) (append (free-variables p) (free-variables c) (free-variables a))]
 
-      [(Begin e1 e2) (append (free-variables e1) (free-variables e2))]
+      [(Begin args) (append-map free-variables args)]
 
       ;; For `let` we can't simply append all free variables, precisely because
       ;; `let` binds a value to x. Thus, the free variables in e2 are the free
@@ -167,7 +167,7 @@
     [(Prim2 p e1 e2) (Prim2 p (desugar e1) (desugar e2))]
 
     [(If p c a) (If (desugar p) (desugar c) (desugar a))]
-    [(Begin e1 e2) (Begin (desugar e1) (desugar e2))]
+    [(Begin args) (Begin (map desugar args))]
 
     [(Let x v e) (Let x (desugar v) (desugar e))]
 
@@ -196,7 +196,7 @@
     [(Prim1 p e) (Prim1 p (label-lambdas e))]
     [(Prim2 p e1 e2) (Prim2 p (label-lambdas e1) (label-lambdas e2))]
     [(If p c a) (If (label-lambdas p) (label-lambdas c) (label-lambdas a))]
-    [(Begin e1 e2) (Begin (label-lambdas e1) (label-lambdas e2))]
+    [(Begin args) (Begin (map label-lambdas args))]
 
     [(Let x v e) (Let x (label-lambdas v) (label-lambdas e))]
     [(LetRec bindings body)
@@ -230,7 +230,7 @@
     [(Prim1 p e)       (get-lambdas e)]
     [(Prim2 p e1 e2)   (append (get-lambdas e1) (get-lambdas e2))]
     [(If e1 e2 e3)     (append (get-lambdas e1) (get-lambdas e2) (get-lambdas e3))]
-    [(Begin e1 e2)     (append (get-lambdas e1) (get-lambdas e2))]
+    [(Begin args)      (append-map get-lambdas args)]
     [(Let x e1 e2)     (append (get-lambdas e1) (get-lambdas e2))]
     [(LetRec bs e1)    (append (append-map lambda-in-let-def bs) (get-lambdas e1))]
     [(Lambda n xs e1)  (cons e (get-lambdas e1))]
