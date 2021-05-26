@@ -48,7 +48,15 @@
   (match p
     ;; Arithmetic
     ['+ (if (and (integer? v1) (integer? v2)) (+ v1 v2) 'err)]
-    ['- (if (and (integer? v1) (integer? v2)) (+ v1 v2) 'err)]
+    ['- (if (and (integer? v1) (integer? v2)) (- v1 v2) 'err)]
+
+    ['< (if (and (integer? v1) (integer? v2)) (< v1 v2) 'err)]
+    ['> (if (and (integer? v1) (integer? v2)) (> v1 v2) 'err)]
+    ['= (if (and (integer? v1) (integer? v2)) (= v1 v2) 'err)]
+
+
+    ;; Comparison
+    ['eq? (eq? v1 v2)]
 
     ;; Inductive Data
     ['cons (cons v1 v2)]))

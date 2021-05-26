@@ -3,6 +3,7 @@
 (require "ast.rkt" "types.rkt" a86/ast)
 
 ;; Registers
+;; rdi, rsi, rdx, rcx, r8, and r9 <- left-to right for Sys V ABI calling conventions
 ;; `rdi` is one of the caller-saved registers, and
 ;; it will have to be used for, e.g., write-byte
 (define rax 'rax) ;; Return value
@@ -85,7 +86,6 @@
             (Ret)))]))
 
 (define (compile-lambda-definitions ls)
-  ;; JMCT wraps everything in seq but is it really necessary?
   (match ls
     ['() (seq)]
     [(cons d ds)
@@ -325,6 +325,52 @@
         (Cmp rax r8)
         (Mov rax val-true)
         (Je l1)
+        (Mov rax val-false)
+        (Label l1)))]
+
+    ['=
+     (let ([l1 (gensym)])
+       (seq
+        (Pop r8)
+        (assert-integer r8)
+        (assert-integer rax)
+        (Cmp rax r8)
+        (Mov rax val-true)
+        (Je l1)
+        (Mov rax val-false)
+        (Label l1)))]
+
+    ['<
+     (let ([l1 (gensym)])
+       (seq
+        (Pop r8)
+        (assert-integer r8)
+        (assert-integer rax)
+
+        ;; We subtract the first argument from the second
+        ;; if the result is lower than zero, then (< e1 e2) is true
+        (Sub r8 rax)
+        (Mov rax r8)
+        (Cmp rax 0)
+        (Mov rax val-true)
+        (Jl l1)
+        (Mov rax val-false)
+        (Label l1)))]
+
+    ['>
+     (let ([l1 (gensym)])
+       (seq
+        (Pop r8)
+        (assert-integer r8)
+        (assert-integer rax)
+
+        ;; We subtract the first argument from the second
+        ;; if the result is greater than zero, then (> e1 e2) is true
+        (Sub r8 rax)
+        (Mov rax r8)
+        (Cmp rax 0)
+        (Mov rax val-true)
+        (Jg l1)
         (Mov rax val-false)
         (Label l1)))]
 

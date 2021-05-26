@@ -89,7 +89,13 @@
            ;; Binary Primitives (Prim2)
            [(list '+ e1 e2)     (Prim2 '+ (parse-e e1) (parse-e e2))]
            [(list '- e1 e2)     (Prim2 '- (parse-e e1) (parse-e e2))]
+           ;; TODO: implement, probably will be part of std lib (there's no quad for multiplication)
            [(list '* e1 e2)     (Prim2 '* (parse-e e1) (parse-e e2))]
+
+           [(list '< e1 e2)     (Prim2 '< (parse-e e1) (parse-e e2))]
+           [(list '> e1 e2)     (Prim2 '> (parse-e e1) (parse-e e2))]
+           [(list '= e1 e2)     (Prim2 '= (parse-e e1) (parse-e e2))]
+
            [(list 'cons e1 e2)  (Prim2 'cons (parse-e e1) (parse-e e2))]
            [(list 'eq?   e1 e2)  (Prim2 'eq?  (parse-e e1) (parse-e e2))]
 
