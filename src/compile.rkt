@@ -230,6 +230,14 @@
             (Mov rax val-false)
             (Label l1)))]
 
+    ['null?
+     (let ([l1 (gensym)])
+       (seq (Cmp rax val-empty)
+            (Mov rax val-true)
+            (Je l1)
+            (Mov rax val-false)
+            (Label l1)))]
+
     ['char?
      (let ([l1 (gensym)])
        ;; AND gives us the last two bits

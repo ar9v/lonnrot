@@ -26,6 +26,7 @@
 
     ;; Predicates
     ['zero?         (if (integer? v) (zero? v) 'err)]
+    ['null?         (null? v)]
     ['char?         (char? v)]
     ['eof-object?   (eof-object? v)]
 

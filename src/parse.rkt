@@ -68,6 +68,7 @@
 
            ;;;; Predicates
            [(list 'zero? e)         (Prim1 'zero?         (parse-e e))]
+           [(list 'null? e)         (Prim1 'null?         (parse-e e))]
            [(list 'char? e)         (Prim1 'char?         (parse-e e))]
            [(list 'eof-object? e)   (Prim1 'eof-object?   (parse-e e))]
 

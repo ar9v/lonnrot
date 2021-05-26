@@ -226,6 +226,14 @@
     (pure `(if ,p ,c ,a))))
 
 
+(define app/p
+  (do
+      [f <- (token/p variable/p)]
+      [args <- (many/p (token/p expr/p))]
+
+    (pure `(,f ,@args))))
+
+
 (define def/p
   (do
      (token/p (string/p "define"))
@@ -233,21 +241,6 @@
                          (many/p (token/p variable/p) #:min 1)))]
      [body <- (token/p expr/p)]
       (pure `(define ,defs ,body))))
-
-(define begin-defs/p
-  (do
-      (token/p (string/p "begin"))
-      [defs <- (many/p (try/p (lst/p def/p)) #:min 1)]
-      [e <- (token/p expr/p)]
-
-      (pure `(begin ,@defs ,e))))
-
-(define app/p
-  (do
-      [f <- (token/p variable/p)]
-      [args <- (many/p (token/p expr/p))]
-
-    (pure `(,f ,@args))))
 
 ;; TODO:
 ;; Currently, we try/p for whole parsers, which means that
@@ -259,35 +252,20 @@
         (do (string/p "'()") (pure ''()))
         (lst/p
          (or/p
-          (try/p begin-defs/p)
           quote/p
           (try/p if/p)
           (try/p letrec/p) ;; ambiguity with `let`
           (try/p let/p)
-          slist/p
+          (try/p slist/p)
           lambda/p
           prim/p
           app/p))))
-
-;; DEFINITION
-;; TODO: not yet supported in compiler
-;; (define define/p
-;;   (do
-;;     (char/p #\()
-;;     (string/p "define")
-;;     variable/p
-;;     expr/p))
 
 ;; Form
 (define form/p
   (or/p
    (try/p (token/p (lst/p def/p)))
    (token/p expr/p)))
-
-  ;; (do (or/p )
-
-  ;;     [e <- expr/p]
-  ;;     (pure e)))
 
 ;; hoist-defs: [Forms] x [Defs] x [Es] -> ([Defs] . [Exprs])
 ;; hoist-defs takes a list of forms and separates defs from
@@ -301,11 +279,9 @@
        [_ (hoist-defs fs ds (cons f es))])]))
 
 ;; Program
-;; NOTE: For now, we only parse one expression
 (define program/p
   (do
-    ;; [p <- (parse*/p (many/p (token/p form/p)))] ;; NOTE: multiple expressions
-    [p <- (many/p (token/p form/p))] ;; NOTE: As is
+    [p <- (many/p (token/p form/p))]
     (pure (hoist-defs p '() '()))))
 
 ;; mread: String -> Sexp
