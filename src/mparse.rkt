@@ -170,6 +170,14 @@
 
     (pure `(letrec ,bindings ,body))))
 
+
+(define slist/p
+  (do
+    (token/p (string/p "list"))
+    [args <- (many/p (token/p expr/p))]
+
+    (pure `(list ,@args))))
+
 (define ops0 '(read-byte peek-byte void))
 (define prim0/p
   (do
@@ -250,7 +258,8 @@
           quote/p
           (try/p if/p)
           (try/p letrec/p) ;; ambiguity with `let`
-          let/p
+          (try/p let/p)
+          slist/p
           lambda/p
           prim/p
           app/p))))

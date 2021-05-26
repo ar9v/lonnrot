@@ -177,11 +177,22 @@
 
     [(Lambda name params body) (Lambda (gensym 'lam) params (desugar body))]
 
+    [(App (Var 'list) args) (desugar-list args)]
     [(App expr args) (App (desugar expr) (map desugar args))]
 
     ;; Base case
     [_ e+]))
 
+;; desugar-list: [Expr] -> ASM with cons
+;; desugar-list takes a list of expressions which represent arguments to
+;; the `list` function, and produces a Prim2 node in which conses are chained
+(define (desugar-list args)
+  (match args
+    ['() (Empty)]
+    [(cons a as)
+     (Prim2 'cons
+            (desugar a)
+            (desugar-list as))]))
 
 ;; Lambda labelling
 ;; Lambdas are anonymous.. to the user. We need to label them so we know where
