@@ -22,7 +22,11 @@
 ;; junk :: Parser ()
 ;; junk munches whitespace.
 (define junk/p
-  (many/p space/p))
+  (many/p (or/p space/p
+                (do
+                  (char/p #\;)
+                  (many/p (char-not/p #\newline))
+                  (or/p (char/p #\newline) eof/p)))))
 
 ;; token :: Parser a -> Parser a
 ;; token applies junk after applying a parser
