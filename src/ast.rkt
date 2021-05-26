@@ -153,7 +153,7 @@
     ;; the function definitions and whose body is the program's body
     [(Prog defs e)
      (let ([desugared-defs (map desugar defs)])
-       (Prog '() (LetRec desugared-defs e)))]
+       (Prog '() (LetRec desugared-defs (desugar e))))]
 
     ;; When we convert a Program with Defs to a LetRec program, we'll want the
     ;; structure of the LetRec's definitions to be a list of lists, so this

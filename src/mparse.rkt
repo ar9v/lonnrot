@@ -118,7 +118,7 @@
       (token/p (string/p "quote"))
       ;; Right now, we only support quote to produce the empty list
       ;; [e <- expr/p]
-      (token/p (string/p "()"))
+      (token/p (string/p "'()")) ;; TODO: fix, since quote/p is wrapped in lst/p, we can't prepend the tick
     (pure ''())))
 
 (define lambda/p
@@ -252,6 +252,7 @@
 (define expr/p
   (or/p constant/p
         variable/p
+        (do (string/p "'()") (pure ''()))
         (lst/p
          (or/p
           (try/p begin-defs/p)
@@ -275,16 +276,33 @@
 
 ;; Form
 (define form/p
-  ;; TODO: define
-  (do [e <- expr/p]
-      (pure e)))
+  (or/p
+   (try/p (token/p (lst/p def/p)))
+   (token/p expr/p)))
+
+  ;; (do (or/p )
+
+  ;;     [e <- expr/p]
+  ;;     (pure e)))
+
+;; hoist-defs: [Forms] x [Defs] x [Es] -> ([Defs] . [Exprs])
+;; hoist-defs takes a list of forms and separates defs from
+;; exprs such that we can "hoist" the defs in the parser
+(define (hoist-defs forms ds es)
+  (match forms
+    ['() `(,@ds ,@es)]
+    [(cons f fs)
+     (match f
+       [(cons 'define rest) (hoist-defs fs (cons f ds) es)]
+       [_ (hoist-defs fs ds (cons f es))])]))
 
 ;; Program
+;; NOTE: For now, we only parse one expression
 (define program/p
   (do
     ;; [p <- (parse*/p (many/p (token/p form/p)))] ;; NOTE: multiple expressions
-    [p <- (token/p form/p)] ;; NOTE: As is
-    (pure p)))
+    [p <- (many/p (token/p form/p))] ;; NOTE: As is
+    (pure (hoist-defs p '() '()))))
 
 ;; mread: String -> Sexp
 ;;
@@ -295,11 +313,11 @@
 ;; It is called mread in following the reader/expander
 ;; terminology; the m is for megaparsack.
 (define (mread source [filename ""])
-  (parse-result!
-   (parse-string (parse*/p program/p) source filename)))
-
-(define (my-reader filename)
-  (let ([filename-port (open-input-file filename)])
-    (port->string filename-port)))
-
-;; (call-with-input-file "input" solution)
+  (let ([stdlib-file (open-input-file "std.rot")])
+    ;; NOTE: the _cursed_ splice
+    `(begin
+       ,@(append
+          (parse-result!
+           (parse-string (parse*/p (many/p (token/p (lst/p def/p)))) (port->string stdlib-file) "std.rot"))
+          (parse-result!
+           (parse-string (parse*/p program/p) source filename))))))

@@ -1,6 +1,6 @@
 #lang racket
 (provide main)
-(require "parse.rkt" "interp.rkt")
+(require "parse.rkt" "interp.rkt" "mparse.rkt")
 
 ;; main: String -> Void
 ;; main takes a String representation of our Lonnrot program
@@ -15,6 +15,6 @@
 (define (main filename)
   (let ([program-port (open-input-file filename)])
     (begin
-      (read-line program-port)
-      (displayln (interp (parse (read program-port))))
+      ;;(read-line program-port) NOTE: uncomment when using the Racket Reader
+      (displayln (interp (parse (mread (port->string program-port)))))
       (close-input-port program-port))))

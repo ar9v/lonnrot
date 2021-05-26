@@ -30,6 +30,7 @@ int64_t peek_byte() {
 int64_t write_byte(int64_t c) {
     int64_t codepoint = c >> INT_SHIFT;
     putc((char) codepoint, out);
+    printf("\n");
 
     return 0;
 }
