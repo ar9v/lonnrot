@@ -233,7 +233,8 @@
 
     (pure `(,f ,@args))))
 
-
+;; TODO(?):
+;; Technically... defines should also use formals
 (define def/p
   (do
      (token/p (string/p "define"))
@@ -293,11 +294,11 @@
 ;; It is called mread in following the reader/expander
 ;; terminology; the m is for megaparsack.
 (define (mread source [filename ""])
-  (let ([stdlib-file (open-input-file "std.rot")])
+  (let ([stdlib-file (open-input-file "std.lonn")])
     ;; NOTE: the _cursed_ splice
     `(begin
        ,@(append
           (parse-result!
-           (parse-string (parse*/p (many/p (token/p (lst/p def/p)))) (port->string stdlib-file) "std.rot"))
+           (parse-string (parse*/p program/p) (port->string stdlib-file) "std.lonn"))
           (parse-result!
            (parse-string (parse*/p program/p) source filename))))))
