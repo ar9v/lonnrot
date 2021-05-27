@@ -35,6 +35,25 @@
      (cons (list sym (parse-e expr))
            (parse-bindings rest))]))
 
+;; parse-clauses: [[Exprs]...] -> ASM
+;; parse-clauses traverses the clauses `cs` and
+;; parses their subexpressions
+(define (parse-clauses cs)
+  (match cs
+    [(list (list 'else es ...)) (list (list (Bool #t) (map parse-e es)))]
+    [(cons (list p es ...) rest)
+     (cons (list (parse-e p) (map parse-e es))
+           (parse-clauses rest))]
+    [_ (error "Error parsing cond. No else clause found.")]))
+    ;; ['() '()]
+    ;; [(cons c cs)
+    ;;  (match c
+    ;;    [(cons predicate exprs)
+    ;;     (cons (list (parse-e predicate)
+    ;;                 (map parse-e exprs))
+    ;;           (parse-clauses cs))]
+    ;;    [_ (error "Error parsing cond")])]))
+
 ;; parse: Sexp -> Maybe Error
 ;;
 ;; (parse s) takes a symbolic expression, s, which
@@ -105,6 +124,8 @@
             (Begin (map parse-e args))]
            [(list 'if e1 e2 e3)
             (If (parse-e e1) (parse-e e2) (parse-e e3))]
+           [(list 'cond cs)
+            (Cond (parse-clauses cs))]
 
            ;; Local binding
            [(list 'let (list (list (? symbol? x) v)) e)

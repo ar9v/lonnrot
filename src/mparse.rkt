@@ -225,6 +225,20 @@
 
     (pure `(if ,p ,c ,a))))
 
+;; cond/p will produce the list with the symbol 'cond and
+;; a list of lists, where the car of each is the predicate and the
+;; cdr is a list of expressions
+(define cond/p
+  (do
+    (token/p (string/p "cond"))
+      [clauses <- (many/p
+                   (token/p
+                    (lst/p
+                     ;;(list/p (token/p expr/p) (many/p (token/p expr/p))))))]
+                     (many/p (token/p expr/p)))))]
+                     ;; (many/p (lst/p (do (list/p (token/p expr/p) (token/p expr/p))))))))]
+
+    (pure `(cond ,clauses))))
 
 (define app/p
   (do
@@ -257,6 +271,7 @@
           (try/p if/p)
           (try/p letrec/p) ;; ambiguity with `let`
           (try/p let/p)
+          (try/p cond/p)
           (try/p slist/p)
           lambda/p
           prim/p

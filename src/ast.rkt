@@ -68,6 +68,7 @@
 
 ;; Conditional, Sequencing
 (struct If (e1 e2 e3)             #:prefab)
+(struct Cond (clauses)            #:prefab)
 (struct Begin (args)              #:prefab)
 
 ;; Variable binding
@@ -161,12 +162,14 @@
     ;; (letrec
     ;;   ((f (lambda params body))))
     ;;    ^------- this is why we return a list
-    [(Defn f params body) (list f (Lambda f params body))]
+    [(Defn f params body) (list f (Lambda f params (desugar body)))]
 
     [(Prim1 p e) (Prim1 p (desugar e))]
     [(Prim2 p e1 e2) (Prim2 p (desugar e1) (desugar e2))]
 
     [(If p c a) (If (desugar p) (desugar c) (desugar a))]
+    [(Cond cs)
+     (desugar-cond cs)]
     [(Begin args) (Begin (map desugar args))]
 
     [(Let x v e) (Let x (desugar v) (desugar e))]
@@ -193,6 +196,17 @@
      (Prim2 'cons
             (desugar a)
             (desugar-list as))]))
+
+;; desugar-cond: [[Exprs]...] -> (If ...)
+;; desugar-cond takes the list of clauses of the cond and rewrites the node
+;; as a sequence of If nodes
+(define (desugar-cond cs)
+  (match cs
+    ['() (Bool #f)]
+    [(cons (list p es) rest)
+     (If (desugar p)
+         (desugar (Begin es))
+         (desugar-cond rest))]))
 
 ;; Lambda labelling
 ;; Lambdas are anonymous.. to the user. We need to label them so we know where
