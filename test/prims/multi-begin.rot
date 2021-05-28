@@ -1,0 +1,6 @@
+(begin
+ (write-byte 65)
+ (write-byte 66)
+ (write-byte 67)
+ (write-byte 68)
+ (write-byte 69))

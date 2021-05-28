@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+
+# Death and the comp(iler )pass
+# This is basically a glorified Makefile
+
+usage() {
+cat <<EOF
+Usage: compass [OPTION] FILE
+Compile or interpret Lonnrot Scheme code.
+The file to compile or interpret must be in the current directory
+Example: compass -c fib.rot
+
+Possible options are:
+    -c  Produce an ELF executable for x86 machines
+    -i  Interpret a Lonnrot Scheme file
+    -v  Produce an object file for tlvm, the Lonnrot Scheme VM
+EOF
+}
+
+cleanup() {
+    rm ${filename}.o ${filename}.s std.lonn main.o char.o io.o
+}
+
+# TODO: update srcPath; better yet, have an install script of sorts
+# that deals that deals with this
+srcPath=".."
+filename=${2%%\.*}
+
+compile() {
+    echo "Compiling file $1 into x86..."
+
+    # Huge hack: copy the std library to my current dir
+    # There should be a dedicated import/require in the language that
+    # pulls from a certain path
+    cp ${srcPath}/std.lonn .
+
+    # Run the compiler
+    racket -t ${srcPath}/compile-file-asm.rkt -m $1 > ${filename}.s &&
+
+    # Produce the nasm object
+    nasm -f elf64 -o ${filename}.o ${filename}.s &&
+
+    # Produce the runtime objects
+    gcc -c ${srcPath}/main.c -o main.o -fPIC &&
+    gcc -c ${srcPath}/char.c -o char.o -fPIC &&
+    gcc -c ${srcPath}/io.c -o io.o -fPIC &&
+
+    # Produce the executable
+    echo HERE
+    echo ${filename}
+    gcc main.o char.o io.o ${filename}.o -o ${filename}
+}
+
+interp() {
+    echo "Interpreting the AST for file $1..."
+}
+
+image() {
+    echo "Producing image..."
+}
+
+if [ $# -lt 2 ]
+then
+    usage
+    exit 1
+fi
+
+case $1 in
+    "-c") compile $2 ;;
+    "-i") interp  $2 ;;
+    "-v") image   $2 ;;
+    *) usage ;;
+esac
+
+cleanup

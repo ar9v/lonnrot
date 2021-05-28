@@ -1,0 +1,8 @@
+(let ((t (char->integer #\t)))
+ (let ((f (char->integer #\f)))
+  (begin
+    (if (< 1 2) (write-byte t)  (write-byte f))
+    (if (< 2 1) (write-byte t)  (write-byte f))
+    (if (> 4 3) (write-byte t) (write-byte f))
+    (if (> 3 3) (write-byte t) (write-byte f))
+    (if (= 3 3) (write-byte t) (write-byte f)))))

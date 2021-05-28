@@ -1,0 +1,1 @@
+(let ((i (read-byte))) (write-byte i))

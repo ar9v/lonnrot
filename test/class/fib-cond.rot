@@ -1,0 +1,8 @@
+(define (fib n)
+  (cond ((zero? n) 0)
+        ((= n 1)   1)
+        (else 
+         (+ (fib (sub1 n))
+            (fib (- n 2))))))
+
+(fib 10)

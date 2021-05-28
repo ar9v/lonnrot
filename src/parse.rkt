@@ -84,12 +84,16 @@
            ;;;; Arithmetic primitives
            [(list 'add1 e)          (Prim1 'add1          (parse-e e))]
            [(list 'sub1 e)          (Prim1 'sub1          (parse-e e))]
+           [(list '- e)             (Prim1 '-             (parse-e e))]
 
            ;;;; Predicates
            [(list 'zero? e)         (Prim1 'zero?         (parse-e e))]
            [(list 'null? e)         (Prim1 'null?         (parse-e e))]
            [(list 'char? e)         (Prim1 'char?         (parse-e e))]
            [(list 'eof-object? e)   (Prim1 'eof-object?   (parse-e e))]
+
+           ;;;; Boolean
+           [(list 'not e)           (Prim1 'not           (parse-e e))]
 
            ;;;; Value conversions
            [(list 'integer->char e) (Prim1 'integer->char (parse-e e))]

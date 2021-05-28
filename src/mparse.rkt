@@ -189,7 +189,7 @@
                       (lambda (t) (member t ops0)))]
     (pure (list prim))))
 
-(define ops1 '(add1 sub1 zero? char? eof-object? integer->char char->integer write-byte box unbox car cdr))
+(define ops1 '(add1 sub1 zero? char? eof-object? integer->char char->integer write-byte box unbox car cdr not))
 (define prim1/p
   (do
      [prim <- (guard/p (token/p variable/p)

@@ -1,0 +1,48 @@
+;; List operations
+(define (append l1 l2)
+  (if (null? l1)
+      l2
+      (cons (car l1)
+            (append (cdr l1) l2))))
+
+(define (map f lst)
+  (if (null? lst)
+      '()
+      (cons (f (car lst))
+            (map f (cdr lst)))))
+
+(define (filter p lst)
+  (if (null? lst)
+      '()
+      (let ((head (car lst)))
+        (if (p head)
+            (cons head (filter p (cdr lst)))
+            (filter p (cdr lst))))))
+
+;; sort: [Int] -> [Int]
+;; Implements classic quicksort
+(define (sort lst)
+  (if (null? lst)
+      '()
+       (append
+        (append
+          (sort (filter (lambda (x) (< x (car lst))) lst))
+          (list (car lst)))
+        (sort (filter (lambda (x) (> x (car lst))) lst)))))
+
+;; find: Value x List -> Value | #f
+;; Looks for a value in a given list and returns it if it finds it or
+;; #f if it doesn't
+(define (find v lst)
+  (cond ((null? lst) #f)
+        ((eq? v (car lst)) v)
+        (else (find v (cdr lst)))))
+
+;; Arithmetic
+(define (* e1 e2)
+  (mult e1 e2 e1))
+
+(define (mult e1 e2 acc)
+    (if (= e2 1)
+        acc
+        (mult e1 (sub1 e2) (+ acc e1)))) 
