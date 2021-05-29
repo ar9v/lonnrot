@@ -11,6 +11,8 @@ int64_t *heap;
 
 void print_result(int64_t);
 void print_char(int64_t);
+void print_string(int64_t);
+void print_string_char(int64_t);
 void print_cons(int64_t);
 
 void error_exit() {
@@ -36,7 +38,6 @@ int main(int argc, char **argv) {
     // main entry function is stored in rdi due to Sys V ABI
     // convention
     int64_t result = entry(heap);
-
     // Since we know have boxes and pairs, before we print
     // the result, we might need to print a pair's quote
 
@@ -76,6 +77,17 @@ void print_cons(int64_t address) {
     }
 }
 
+void print_string(int64_t address) {
+    // A string is a pointer to a size (the size `n` of the string), from which
+    // there are `n` reserved spaces in the heap.
+    int64_t* str = (int64_t *)(address ^ STRING_TYPE_TAG);
+    int64_t len = (str[0] >> INT_SHIFT);
+
+    int i;
+    for(i = 0; i < len; i++)
+        print_string_char(str[i + 1]);
+}
+
 void print_result(int64_t result) {
     if(CONS_TYPE_TAG == (PTR_TYPE_MASK & result)) {
         printf("(");
@@ -93,6 +105,11 @@ void print_result(int64_t result) {
     }
     else if(PROC_TYPE_TAG == (PTR_TYPE_MASK & result)) {
        printf("<procedure>");
+    }
+    else if(STRING_TYPE_TAG == (PTR_TYPE_MASK & result)) {
+        printf("\"");
+        print_string(result);
+        printf("\"");
     }
     else if(INT_TYPE_TAG == (INT_TYPE_MASK & result)) {
         printf("%" PRId64, result >> INT_SHIFT);

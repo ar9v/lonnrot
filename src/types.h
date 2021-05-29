@@ -7,6 +7,7 @@
 **   - Pointers (end in non-000)
 **     - Box  (001)
 **     - Pair (010)
+**     - Strings (011)
 **     - Functions (100)
 **
 ** Masks are the same, but shifted by three bits, which allow us to
@@ -60,6 +61,10 @@
 
 // 1 -> 10 -> 10 | 1 -> 11
 #define NONCHAR_TYPE_TAG ((1 << (CHAR_SHIFT - 1)) | NONINT_TYPE_TAG)
+
+
+// STRINGS
+#define STRING_TYPE_TAG 3
 
 
 // BOOLEANS

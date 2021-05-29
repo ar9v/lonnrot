@@ -69,6 +69,7 @@
   (cond [(integer? s)   (Int s)]
         [(boolean? s)   (Bool s)]
         [(char? s)      (Char s)]
+        [(string? s)    (String s)]
         [(empty? s)     (Empty)]
         [else
          (match s

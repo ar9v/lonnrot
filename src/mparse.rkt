@@ -51,9 +51,9 @@
 ;; of parens and something parseable in between
 (define (lst/p p)
   (do
-    (token/p (char/p #\())
+    (token/p (char-in/p "([{"))
     [res <- (token/p p)]
-    (token/p (char/p #\)))
+    (token/p (char-in/p ")]}"))
     (pure res)))
 
 ;; CONSTANTS
@@ -68,6 +68,13 @@
     (pure (match bool
             [#\t #t]
             [#\f #f]))))
+
+(define str/p
+  (do
+    (char/p #\")
+    [str <- (many/p (char-not-in/p "\""))]
+    (char/p #\")
+    (pure (list->string str))))
 
 (define constant/p
   (or/p integer/p
@@ -264,6 +271,7 @@
 (define expr/p
   (or/p constant/p
         variable/p
+        str/p
         (do (string/p "'()") (pure ''()))
         (lst/p
          (or/p

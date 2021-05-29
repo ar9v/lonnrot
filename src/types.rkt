@@ -17,6 +17,9 @@
 (define type-char    #b01000)
 (define mask-char    #b11111)
 
+;; Strings
+(define type-string  #b011)
+
 ;; Bools
 (define val-true    #b0011000)
 (define val-false   #b0111000)

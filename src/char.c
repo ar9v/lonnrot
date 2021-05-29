@@ -3,16 +3,16 @@
 #include "types.h"
 
 void print_codepoint(int64_t);
+void print_char(int64_t v);
+void print_string_char(int64_t v);
 
-// print_char takes a value v and
-// 1. removes the char tag (hence the shift)
-// 2. prints the hash character which is used in Scheme
-// 3. either prints a special character or the actual value
+// Since we added strings, we separate the tasks of printing
+// the "#\", which is a char specific thing, and printing
+// the actual thing represented by the codepoint. This way,
+// in strings we can print the characters as they are
 void print_char(int64_t v) {
-    int64_t codepoint = v >> CHAR_SHIFT;
-
     printf("#\\");
-
+    int64_t codepoint = v >> CHAR_SHIFT;
     switch(codepoint) {
         case 0:
             printf("nul");
@@ -40,6 +40,46 @@ void print_char(int64_t v) {
             break;
         case 127:
             printf("rubout");
+            break;
+        default:
+            print_codepoint(v);
+    }
+}
+
+
+// print_string_char(char_representation)...
+// 1. removes the char tag (hence the shift)
+// 2. prints the hash character which is used in Scheme
+// 3. either prints a special character or the actual value
+void print_string_char(int64_t v) {
+    int64_t codepoint = v >> CHAR_SHIFT;
+    switch(codepoint) {
+        case 0:
+            printf("nul");
+            break;
+        case 8:
+            printf("<backspace>");
+            break;
+        case 9:
+            printf("\t");
+            break;
+        case 10:
+            printf("\n");
+            break;
+        case 11:
+            printf("\v");
+            break;
+        case 12:
+            printf("<newpage>");
+            break;
+        case 13:
+            printf("\r");
+            break;
+        case 32:
+            printf(" ");
+            break;
+        case 127:
+            printf("<rubout>");
             break;
         default:
             print_codepoint(v);

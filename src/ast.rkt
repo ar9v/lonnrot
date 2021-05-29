@@ -59,6 +59,7 @@
 (struct Int (i)                   #:prefab)
 (struct Bool (b)                  #:prefab)
 (struct Char (c)                  #:prefab)
+(struct String (s)                #:prefab)
 (struct Var (x)                   #:prefab)
 
 ;; Primitives

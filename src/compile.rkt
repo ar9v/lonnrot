@@ -143,6 +143,7 @@
     [(Eof)                      (compile-value eof)]
     [(Empty)                    (compile-value '())]
     [(Var x)                    (compile-var x cenv)]
+    [(String s)                 (compile-string s)]
     [(Lambda name params body)  (compile-lambda name params (free-variables expr) cenv)]
 
     ;; Primitives
@@ -175,6 +176,40 @@
 (define (compile-var x cenv)
   (let ([i (lookup x cenv)])
     (seq (Mov rax (Offset rsp i)))))
+
+;; compile-string: (String s) -> ASM
+;; In this implementation, a string is a pointer to a size `n`, which
+;; indicates the amount `n` of contiguous spaces in the heap that are
+;; reserved for the strings
+(define (compile-string s)
+  (let ([length (string-length s)])
+    (seq
+     ;; First we place the size of the string on the heap
+     (Mov r8 (immediate->bits length))
+     (Mov (Offset rbx 0) r8)
+
+     ;; Then, similar to compiling lambdas, we must add the
+     ;; actual `n` characters on the heap.
+     ;; We move the pointer to r9 as a backup and add 8, since we
+     ;; need to skip the length we just put in
+     (Mov r9 rbx)
+     (Add r9 8)
+     (copy-str-to-heap (string->list s) 0)
+
+     ;; Finally we return a pointer to the string
+     (Mov rax rbx)
+     (Or rax type-string)
+     (Add rbx (* 8 (+ 1 length))))))
+
+;; TODO
+(define (copy-str-to-heap s offset)
+  (match s
+    ['() (seq)]
+    [(cons ch chs)
+     (seq
+      (compile-value ch)
+      (Mov (Offset r9 offset) rax)
+      (copy-str-to-heap chs (+ 8 offset)))]))
 
 (define (compile-prim0 p cenv)
   (match p
@@ -626,6 +661,8 @@
      ;; Since f is (allegedly) a lambda, this means not only that we
      ;; get the pointer back at rax, but also that we have pushed the
      ;; amount of free variables onto the heap, see compile-lambda
+     ;;
+     ;; tldr with this we have pushed the function pointer onto the stack
      (compile-e f env+)
      (Push rax)
 

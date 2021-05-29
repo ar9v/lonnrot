@@ -44,6 +44,7 @@
     [(Int i)  i]
     [(Bool b) b]
     [(Char c) c]
+    [(String s) s]
     [(Eof)    eof]
     [(Empty)  '()]
     [(Var x) (lookup x env)]
