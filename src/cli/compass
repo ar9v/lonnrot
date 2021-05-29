@@ -7,7 +7,7 @@ usage() {
 cat <<EOF
 Usage: compass [OPTION] FILE
 Compile or interpret Lonnrot Scheme code.
-The file to compile or interpret must be in the current directory
+FILE must be present in the current directory
 Example: compass -c fib.rot
 
 Possible options are:
@@ -17,12 +17,7 @@ Possible options are:
 EOF
 }
 
-cleanup() {
-    rm ${filename}.o ${filename}.s std.lonn main.o char.o io.o
-}
-
-# TODO: update srcPath; better yet, have an install script of sorts
-# that deals that deals with this
+# TODO: write an install script to avoid hardcoding this
 srcPath=".."
 filename=${2%%\.*}
 
@@ -35,7 +30,7 @@ compile() {
     cp ${srcPath}/std.lonn .
 
     # Run the compiler
-    racket -t ${srcPath}/compile-file-asm.rkt -m $1 > ${filename}.s &&
+    racket -t ${srcPath}/compile-file.rkt -m $1 > ${filename}.s &&
 
     # Produce the nasm object
     nasm -f elf64 -o ${filename}.o ${filename}.s &&
@@ -46,13 +41,13 @@ compile() {
     gcc -c ${srcPath}/io.c -o io.o -fPIC &&
 
     # Produce the executable
-    echo HERE
-    echo ${filename}
     gcc main.o char.o io.o ${filename}.o -o ${filename}
 }
 
 interp() {
     echo "Interpreting the AST for file $1..."
+    cp ${srcPath}/std.lonn .
+    racket -t ${srcPath}/interp-file.rkt -m $1
 }
 
 image() {
@@ -66,10 +61,20 @@ then
 fi
 
 case $1 in
-    "-c") compile $2 ;;
-    "-i") interp  $2 ;;
-    "-v") image   $2 ;;
+    "-c")
+        compile $2
+        rm ${filename}.o ${filename}.s main.o char.o io.o
+        ;;
+    "-i")
+        interp  $2
+        ;;
+    "-v")
+        image   $2
+        ;;
     *) usage ;;
 esac
 
-cleanup
+# Since this is common to all of the options
+# we can "factor it out"; at least while we use
+# keep using our copying the file around hack
+rm std.lonn
