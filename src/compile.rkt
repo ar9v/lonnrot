@@ -36,6 +36,7 @@
       (Extern 'peek_byte)
       (Extern 'read_byte)
       (Extern 'write_byte)
+      (Extern 'print_result)
       (Extern 'raise_error)
 
       ;; Before calling functions from other object files (e.g.
@@ -279,6 +280,41 @@
             (Mov rax val-false)
             (Label l1)))]
 
+    ['integer?
+     (let ([l1 (gensym)])
+       (seq (And rax mask-int)
+            (Xor rax type-int)
+            (Cmp rax 0)
+            (Mov rax val-true)
+            (Je l1)
+            (Mov rax val-false)
+            (Label l1)))]
+
+    ['boolean?
+     (let ([l1 (gensym)])
+       (seq (And rax mask-bool)
+            ;; There's no type-bool per se, so we have to check
+            ;; both val-true and val-false
+
+            ;; We first try out #t, notice we have to use r8 to
+            ;; avoid losing the original value
+            (Mov r8 rax)
+            (Xor r8 val-true)
+            (Cmp r8 0)
+            (Mov r8 val-true)
+            (Je l1)
+
+            (Mov r8 rax)
+            (Xor r8 val-false)
+            (Cmp r8 0)
+            (Mov r8 val-true)
+            (Je l1)
+
+            (Mov rax val-false)
+
+            (Label l1)
+            (Mov rax r8)))]
+
     ['char?
      (let ([l1 (gensym)])
        ;; AND gives us the last two bits
@@ -286,6 +322,16 @@
        ;; the same, i.e. if the last bits are 01, type char
        (seq (And rax mask-char)
             (Xor rax type-char)
+            (Cmp rax 0)
+            (Mov rax val-true)
+            (Je l1)
+            (Mov rax val-false)
+            (Label l1)))]
+
+    ['string?
+     (let ([l1 (gensym)])
+       (seq (And rax ptr-mask)
+            (Xor rax type-string)
             (Cmp rax 0)
             (Mov rax val-true)
             (Je l1)
@@ -328,6 +374,13 @@
           (pad-stack cenv)
           (Mov rdi rax)
           (Call 'write_byte)
+          (unpad-stack cenv)
+          (Mov rax val-void))]
+
+    ['displayln
+     (seq (pad-stack cenv)
+          (Mov rdi rax)
+          (Call 'print_result)
           (unpad-stack cenv)
           (Mov rax val-void))]
 

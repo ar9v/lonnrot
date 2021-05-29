@@ -45,14 +45,6 @@
      (cons (list (parse-e p) (map parse-e es))
            (parse-clauses rest))]
     [_ (error "Error parsing cond. No else clause found.")]))
-    ;; ['() '()]
-    ;; [(cons c cs)
-    ;;  (match c
-    ;;    [(cons predicate exprs)
-    ;;     (cons (list (parse-e predicate)
-    ;;                 (map parse-e exprs))
-    ;;           (parse-clauses cs))]
-    ;;    [_ (error "Error parsing cond")])]))
 
 ;; parse: Sexp -> Maybe Error
 ;;
@@ -90,6 +82,9 @@
            ;;;; Predicates
            [(list 'zero? e)         (Prim1 'zero?         (parse-e e))]
            [(list 'null? e)         (Prim1 'null?         (parse-e e))]
+           [(list 'integer? e)      (Prim1 'integer?      (parse-e e))]
+           [(list 'boolean? e)      (Prim1 'boolean?      (parse-e e))]
+           [(list 'string? e)       (Prim1 'string?       (parse-e e))]
            [(list 'char? e)         (Prim1 'char?         (parse-e e))]
            [(list 'eof-object? e)   (Prim1 'eof-object?   (parse-e e))]
 
@@ -102,6 +97,7 @@
 
            ;;;; I/O, Effects
            [(list 'write-byte e)    (Prim1 'write-byte    (parse-e e))]
+           [(list 'displayln  e)    (Prim1 'displayln     (parse-e e))]
 
            ;;;; Inductive data
            [(list 'quote (list))    (Empty)]

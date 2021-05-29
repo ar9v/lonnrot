@@ -28,6 +28,9 @@
     ;; Predicates
     ['zero?         (if (integer? v) (zero? v) 'err)]
     ['null?         (null? v)]
+    ['integer?      (integer? v)]
+    ['boolean?      (boolean? v)]
+    ['string?       (string? v)]
     ['char?         (char? v)]
     ['eof-object?   (eof-object? v)]
 
@@ -40,6 +43,7 @@
 
     ;; I/O, Effects
     ['write-byte    (if (byte? v) (write-byte v) 'err)]
+    ['displayln     (displayln v)]
 
     ;; Inductive Data
     ['box           (box v)]

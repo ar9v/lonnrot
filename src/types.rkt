@@ -21,6 +21,7 @@
 (define type-string  #b011)
 
 ;; Bools
+(define mask-bool   #b1111111)
 (define val-true    #b0011000)
 (define val-false   #b0111000)
 

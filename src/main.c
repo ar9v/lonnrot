@@ -120,13 +120,13 @@ void print_result(int64_t result) {
     else {
         switch(result) {
             case VAL_TRUE:
-                printf("#t\n");
+                printf("#t");
                 break;
             case VAL_FALSE:
-                printf("#f\n");
+                printf("#f");
                 break;
             case VAL_EOF:
-                printf("#<eof>\n");
+                printf("#<eof>");
                 break;
             case VAL_EMPTY:
                 printf("()");
@@ -135,4 +135,5 @@ void print_result(int64_t result) {
                 break;
         }
     }
+    printf("\n");
 }

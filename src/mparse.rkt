@@ -37,7 +37,7 @@
     (pure res)))
 
 ;; parse* :: Parser a -> Parser a
-;; parse* applies junk before applying a parser
+;; parse* applies junk/p before applying a parser
 ;; as a hack, we finish off with eof/p, to ensure there's a legal program
 ;; and nothing more
 (define (parse*/p p)
@@ -51,9 +51,12 @@
 ;; of parens and something parseable in between
 (define (lst/p p)
   (do
-    (token/p (char-in/p "([{"))
+    [lp <- (token/p (char-in/p "([{"))]
     [res <- (token/p p)]
-    (token/p (char-in/p ")]}"))
+    (match lp
+      [#\( (char/p #\))]
+      [#\[ (char/p #\])]
+      [#\{ (char/p #\})])
     (pure res)))
 
 ;; CONSTANTS
@@ -196,7 +199,14 @@
                       (lambda (t) (member t ops0)))]
     (pure (list prim))))
 
-(define ops1 '(add1 sub1 zero? char? eof-object? integer->char char->integer write-byte box unbox car cdr not))
+(define
+  ops1
+  '(add1 sub1
+         zero? char? eof-object? integer? boolean? string?
+         integer->char char->integer
+         write-byte displayln
+         box unbox car cdr
+         not))
 (define prim1/p
   (do
      [prim <- (guard/p (token/p variable/p)
