@@ -1,6 +1,6 @@
 #lang racket
 (provide main)
-(require "parse.rkt" "compile.rkt" "mparse.rkt" a86)
+(require "../parse.rkt" "compile-vm.rkt" "../mparse.rkt" a86)
 
 ;; main: String -> Void
 ;; So, in summary:
@@ -33,4 +33,5 @@
     [(Jmp l)     `(Jmp ,l)]
     [(Je l)      `(Je ,l)]
     [(Jne l)     `(Jne ,l)]
-    [(Ret)       `(Ret)]))
+    [(Ret)       `(Ret)]
+    [_           '(MISSING OP)]))

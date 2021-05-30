@@ -1,6 +1,6 @@
 #lang racket
 (provide (all-defined-out))
-(require "ast.rkt" "types.rkt" a86/ast)
+(require "ast.rkt" "../types.rkt" a86/ast)
 
 ;; Registers
 ;; rdi, rsi, rdx, rcx, r8, and r9 <- left-to right for Sys V ABI calling conventions

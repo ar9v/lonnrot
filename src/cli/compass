@@ -50,7 +50,12 @@ interp() {
 }
 
 image() {
-    echo "Producing image..."
+    echo "Producing tlvm image for $1..."
+
+    cp ${srcPath}/std.lonn .
+
+    # Compile the quads
+    racket -t ${srcPath}/vm/compile-file-image.rkt -m $1 > ${filename}.obj
 }
 
 if [ $# -lt 2 ]
