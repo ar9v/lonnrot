@@ -1,7 +1,7 @@
 * Lonnrot
 
-A Racket implementation of a compiler for a subset of Scheme that's extended with
-miniKanren. It follows, among many tutorials and references, *CMSC 430's*
+A Racket implementation of a compiler for a subset of Scheme that
+follows, among many tutorials and references, *CMSC 430's*
 /Design and Implementation of Programming Languages/ course, *Abdulaziz Ghuloum's* writings
 on incremental compiler construction and *Kent Dybvig's* ideas on the same topic.
 
