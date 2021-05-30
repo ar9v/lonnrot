@@ -1,14 +1,33 @@
 * Lonnrot
 
-A Racket implementation of a compiler for a subset of Scheme that
-follows, among many tutorials and references, *CMSC 430's*
-/Design and Implementation of Programming Languages/ course, *Abdulaziz Ghuloum's* writings
-on incremental compiler construction and *Kent Dybvig's* ideas on the same topic.
+Lonnrot is a Racket implementation of a subset of Scheme for Linux.
+It follows, among many tutorials and references,
+*CMSC 430 (/Design and Implementation of Programming Languages/)*,
+*Abdulaziz Ghuloum's* writings on incremental compiler construction and
+*Kent Dybvig's* ideas on the same topic.
+
+
+** Installation
+*** Dependencies
+Make sure to have =gcc= and =nasm=. Likewise, you should have Racket installed with
+=megaparsack= and =a86=:
+
+#+begin_src bash
+raco pkg install 'https://github.com/cmsc430/www.git?path=langs#main'
+raco pkg install megaparsack
+#+end_src
+
+*** Install script (WIP)
+Once you have met the required dependencies, clone the repository and run =make=.
+
+#+begin_src bash
+git clone https://github.com/argvniyx/lonnrot.git
+cd lonnrot && make
+#+end_src
 
 ** Contents
-- Sources, in =src/=, are Racket files that contain the implementation of Lonnrot
+- Sources, in =src/=, are Racket files that contain the implementation of Lonnrot.
+- Tests, in =test/=, which are simply Lonnrot programs that demonstrate features.
 - A written report, in =report/=, which is a \LaTeX{} document, a bibliography file and
   its output pdf. This will be updated over the course of the semester.
   Acknowledgements and citations are found in this report.
-- A =log.org= file, with the changelog. This is a course requirement, not that interesting
-  (unless you want to accurately trace how I lose my sanity)
