@@ -3,8 +3,6 @@
 #include "types.h"
 
 void print_codepoint(int64_t);
-void print_char(int64_t v);
-void print_string_char(int64_t v);
 
 // Since we added strings, we separate the tasks of printing
 // the "#\", which is a char specific thing, and printing

@@ -33,7 +33,7 @@ compile() {
     racket -t ${srcPath}/compile-file.rkt -m $1 > ${filename}.s &&
 
     # Produce the nasm object
-    nasm -f elf64 -o ${filename}.o ${filename}.s &&
+    nasm -f elf64 -o ${filename}-asm.o ${filename}.s &&
 
     # Produce the runtime objects
     gcc -c ${srcPath}/main.c -o main.o -fPIC &&
@@ -41,7 +41,7 @@ compile() {
     gcc -c ${srcPath}/io.c -o io.o -fPIC &&
 
     # Produce the executable
-    gcc main.o char.o io.o ${filename}.o -o ${filename}
+    gcc main.o char.o io.o ${filename}-asm.o -o ${filename}
 }
 
 interp() {
@@ -62,7 +62,7 @@ fi
 case $1 in
     "-c")
         compile $2
-        rm ${filename}.o ${filename}.s main.o char.o io.o
+        rm ${filename}-asm.o ${filename}.s main.o char.o io.o
         ;;
     "-i")
         interp  $2
