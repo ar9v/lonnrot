@@ -14,6 +14,7 @@ void print_char(int64_t);
 void print_string(int64_t);
 void print_string_char(int64_t);
 void print_cons(int64_t);
+void displayln(int64_t);
 
 void error_exit() {
     printf("err\n");
@@ -38,10 +39,6 @@ int main(int argc, char **argv) {
     // main entry function is stored in rdi due to Sys V ABI
     // convention
     int64_t result = entry(heap);
-    // Since we know have boxes and pairs, before we print
-    // the result, we might need to print a pair's quote
-
-    if(CONS_TYPE_TAG == (PTR_TYPE_MASK & result)) printf("'");
     print_result(result);
 
     if(result != VAL_VOID) printf("\n");
@@ -86,6 +83,11 @@ void print_string(int64_t address) {
     int i;
     for(i = 0; i < len; i++)
         print_string_char(str[i + 1]);
+}
+
+void displayln(int64_t result) {
+    print_result(result);
+    printf("\n");
 }
 
 void print_result(int64_t result) {
@@ -135,5 +137,4 @@ void print_result(int64_t result) {
                 break;
         }
     }
-    printf("\n");
 }

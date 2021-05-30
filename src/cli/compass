@@ -45,7 +45,6 @@ compile() {
 }
 
 interp() {
-    echo "Interpreting the AST for file $1..."
     cp ${srcPath}/std.lonn .
     racket -t ${srcPath}/interp-file.rkt -m $1
 }

@@ -61,7 +61,20 @@
 
 ;; CONSTANTS
 (define scheme-char/p
-  (do (char/p #\#) (char/p #\\) any-char/p))
+  (do
+    (char/p #\#)
+    (char/p #\\)
+    [c <- (or/p
+           (string/p "newline")
+           (string/p "tab")
+           any-char/p)]
+
+    (pure
+     (match c
+       ["newline" #\newline]
+       ["tab"     #\tab]
+       [_         c]))))
+
 
 (define boolean/p
   (do (char/p #\#)
@@ -155,10 +168,10 @@
       [bs <-
           (lst/p
            (many/p
-            (lst/p (do
+            (token/p (lst/p (do
                        [var <- (token/p variable/p)]
                        [val <- (token/p p)]
-                     (pure (list var val))))
+                     (pure (list var val)))))
             #:min min
             #:max max))]
 
@@ -179,7 +192,7 @@
 (define letrec/p
   (do
     (token/p (string/p "letrec"))
-    [bindings <- (bindings/p (lst/p lambda/p) 1 +inf.0)]
+    [bindings <- (token/p (bindings/p (lst/p lambda/p) 1 +inf.0))]
     [body <- (token/p expr/p)]
 
     (pure `(letrec ,bindings ,body))))

@@ -35,7 +35,7 @@
     ['eof-object?   (eof-object? v)]
 
     ;; Booleans
-    ['not?          (not v)]
+    ['not           (not v)]
 
     ;; Conversions
     ['integer->char (if (codepoint? v) (integer->char v) 'err)]
@@ -71,7 +71,10 @@
     ;; Inductive Data
     ['cons (cons v1 v2)]
 
-    ['string-ref (string-ref v1 v2)]))
+    ;; Due to our parser/compiler hack, where we sneak in some
+    ;; "static analysis", we have to recover the original index
+    ;; here
+    ['string-ref (string-ref v2 (- (/ v1 8) 1))]))
 
 ;; codepoint: Any -> Boolean
 ;; (codepoint v) checks if value `v` is within

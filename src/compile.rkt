@@ -36,7 +36,7 @@
       (Extern 'peek_byte)
       (Extern 'read_byte)
       (Extern 'write_byte)
-      (Extern 'print_result)
+      (Extern 'displayln)
       (Extern 'raise_error)
 
       ;; Before calling functions from other object files (e.g.
@@ -202,7 +202,6 @@
      (Or rax type-string)
      (Add rbx (* 8 (+ 1 length))))))
 
-;; TODO
 (define (copy-str-to-heap s offset)
   (match s
     ['() (seq)]
@@ -380,7 +379,7 @@
     ['displayln
      (seq (pad-stack cenv)
           (Mov rdi rax)
-          (Call 'print_result)
+          (Call 'displayln)
           (unpad-stack cenv)
           (Mov rax val-void))]
 

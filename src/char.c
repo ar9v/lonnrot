@@ -24,7 +24,7 @@ void print_char(int64_t v) {
             printf("tab");
             break;
         case 10:
-            printf("tab");
+            printf("newline");
             break;
         case 11:
             printf("vtab");
