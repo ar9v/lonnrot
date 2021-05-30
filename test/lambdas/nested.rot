@@ -1,0 +1,11 @@
+;; This does not work, but would be nice to have
+;; as a feature eventually
+(define (length lst)
+  (define (len l acc)
+    (if (null? l)
+        acc
+        (len (cdr l) (+ acc 1))))
+
+  (len lst 0))
+
+(len (list 1 2 3 4 5))

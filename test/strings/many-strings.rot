@@ -1,0 +1,2 @@
+(displayln "hi")
+(displayln #\newline)

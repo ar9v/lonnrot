@@ -1,0 +1,1 @@
+(displayln (string-ref 5 "hello"))
