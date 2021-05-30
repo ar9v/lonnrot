@@ -9,8 +9,8 @@
   (match s
     [(list 'begin
            (and ds (list 'define _ _)) ...
-           e)
-     (Prog (map parse-define ds) (parse-e e))]
+           es ...)
+     (Prog (map parse-define ds) (Begin (map parse-e es)))]
 
     [e (Prog '() (parse-e e))]))
 
@@ -106,6 +106,7 @@
            [(list 'unbox e)         (Prim1 'unbox (parse-e e))]
            [(list 'car e)           (Prim1 'car   (parse-e e))]
            [(list 'cdr e)           (Prim1 'cdr   (parse-e e))]
+           [(list 'string-length e) (Prim1 'string-length (parse-e e))]
 
            ;; Binary Primitives (Prim2)
            [(list '+ e1 e2)     (Prim2 '+ (parse-e e1) (parse-e e2))]
@@ -119,6 +120,19 @@
 
            [(list 'cons e1 e2)  (Prim2 'cons (parse-e e1) (parse-e e2))]
            [(list 'eq?   e1 e2)  (Prim2 'eq?  (parse-e e1) (parse-e e2))]
+
+           [(list 'string-ref i s)
+            ;; This is kinda cheating:
+            ;; Since we know there are no other ways to produce a string, then we know that
+            ;; s _should_ be a string; we can statically check if the index is within bounds
+            ;; and whether s is a string or not
+            (match s
+              [(? string? str)
+               (let ([size (string-length str)])
+                 (if (and (> i 0) (<= i size))
+                     (Prim2 'string-ref (parse-e (* 8 i)) (parse-e s))
+                     (error "Error: the index is out of bounds")))]
+              [_ (error "The second argument to string-ref should be a string")])]
 
            ;; Control/Sequencing operators
            [(list 'begin args ...)

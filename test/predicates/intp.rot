@@ -1,1 +1,10 @@
-(integer? 3)
+(displayln "These are true:")
+(displayln (integer? 1))
+(displayln (integer? 2))
+(displayln (integer? 100))
+
+(displayln "These are false:")
+(displayln (integer? #t))
+(displayln (integer? #f))
+(displayln (integer? #\c))
+(displayln (integer? (cons 1 2)))

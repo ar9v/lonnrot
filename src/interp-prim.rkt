@@ -46,6 +46,7 @@
     ['displayln     (displayln v)]
 
     ;; Inductive Data
+    ['string-length (string-length v)]
     ['box           (box v)]
     ['unbox         (if (box? v) (unbox v) 'err)]
 
@@ -68,7 +69,9 @@
     ['eq? (eq? v1 v2)]
 
     ;; Inductive Data
-    ['cons (cons v1 v2)]))
+    ['cons (cons v1 v2)]
+
+    ['string-ref (string-ref v1 v2)]))
 
 ;; codepoint: Any -> Boolean
 ;; (codepoint v) checks if value `v` is within

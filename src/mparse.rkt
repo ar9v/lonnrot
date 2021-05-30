@@ -205,6 +205,7 @@
          zero? char? eof-object? integer? boolean? string?
          integer->char char->integer
          write-byte displayln
+         string-length
          box unbox car cdr
          not))
 (define prim1/p
@@ -219,7 +220,7 @@
 ;; Begin was treated as a separate operation in the course
 ;; We would ideally like to have an n-ary begin, but for now
 ;; this also works
-(define ops2 '(eq? + - * cons < > =))
+(define ops2 '(eq? + - * cons < > = string-ref))
 (define prim2/p
   (do
     [prim <- (token/p (guard/p variable/p (lambda (t) (member t ops2))))]
@@ -272,7 +273,7 @@
       [defs <- (token/p (lst/p
                          (many/p (token/p variable/p) #:min 1)))]
      [body <- (token/p expr/p)]
-      (pure `(define ,defs ,body))))
+      (pure `(define ,defs (begin ,body)))))
 
 ;; TODO:
 ;; Currently, we try/p for whole parsers, which means that
@@ -291,7 +292,7 @@
           (try/p let/p)
           (try/p cond/p)
           (try/p slist/p)
-          lambda/p
+          (try/p lambda/p)
           prim/p
           app/p))))
 
@@ -304,9 +305,12 @@
 ;; hoist-defs: [Forms] x [Defs] x [Es] -> ([Defs] . [Exprs])
 ;; hoist-defs takes a list of forms and separates defs from
 ;; exprs such that we can "hoist" the defs in the parser
+;;
+;; We reverse es so that we return the expressions in their correct
+;; order. In other words, since we cons expressions, the latest expression is at the top.
 (define (hoist-defs forms ds es)
   (match forms
-    ['() `(,@ds ,@es)]
+    ['() `(,@ds ,@(reverse es))]
     [(cons f fs)
      (match f
        [(cons 'define rest) (hoist-defs fs (cons f ds) es)]

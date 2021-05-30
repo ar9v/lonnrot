@@ -404,6 +404,11 @@
     ['cdr
      (seq (assert-cons rax)
           (Xor rax type-cons)
+          (Mov rax (Offset rax 0)))]
+
+    ['string-length
+     (seq (assert-string rax)
+          (Xor rax type-string)
           (Mov rax (Offset rax 0)))]))
 
 
@@ -494,7 +499,35 @@
           (Mov (Offset rbx 8) rax)
           (Mov rax rbx)
           (Or rax type-cons)
-          (Add rbx 16))]))
+          (Add rbx 16))]
+
+    ['string-ref
+     (let ([in-bounds (gensym)])
+       (seq
+        ;; Fetch the first argument (the index) from the stack
+        ;; The second argument is in the stack, it is the string pointer
+        ;; We don't need to assert because that was done in compile-time
+        (Pop r8)
+
+        ;; Then, we get the address part of the pointer, to which
+        ;; we add the offset of the function call. This offset will be
+        ;; a multiple of 8, because in parse.rkt we multiply it by 8 before
+        ;; parsing it.
+        ;;
+        ;; This gives us an integer-representation of our index, so
+        ;; we must shift it to the right.
+        ;;
+        ;; Since our addresses are in eights, this is basically what we are doing (e.g. index = 8)
+        ;; Index -> 100  0         000
+        ;;          ^ 8  ^int tag  ^ immediate tag
+        ;;
+        ;; After shift:
+        ;; Index -> 000 1 000
+        (Xor rax type-string) ;; rax <- address
+        (Sar r8 int-shift)    ;; offset
+        (Add rax r8)
+        ;; We can use 0 because rax already has the correct address(!) stonks
+        (Mov rax (Offset rax 0))))]))
 
 ;; Conditional
 (define (compile-if e1 e2 e3 cenv)
@@ -944,6 +977,9 @@
 
 (define assert-cons
   (assert-type ptr-mask type-cons))
+
+(define assert-string
+  (assert-type ptr-mask type-string))
 
 (define assert-proc
   (assert-type ptr-mask type-proc))
