@@ -1,0 +1,10 @@
+(list
+ (Extern 'peek_byte)
+ (Extern 'read_byte)
+ (Extern 'write_byte)
+ (Extern 'raise_error)
+ (Label 'entry)
+ (Mov 'rbx 'rdi)
+ (Mov 'rax 16)
+ (Mov 'rdx 'rbx)
+ (Ret))

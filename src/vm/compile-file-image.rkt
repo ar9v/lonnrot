@@ -11,7 +11,7 @@
 (define (main filename)
   (let ([filename-port (open-input-file filename)])
     (begin
-      (displayln
+      (print
         (compile
          (parse
           (mread (port->string filename-port) filename))))
