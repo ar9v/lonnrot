@@ -1,5 +1,7 @@
 * Lonnrot
 
+[[file:report/lonnrot-logo.png]]
+
 Lonnrot is a Racket implementation of a subset of Scheme for Linux.
 It follows, among many tutorials and references,
 *CMSC 430 (/Design and Implementation of Programming Languages/)*,
