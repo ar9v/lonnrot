@@ -1,6 +1,6 @@
 #lang racket
 (provide (all-defined-out))
-(require "ast.rkt" "../types.rkt" a86/ast)
+(require "ast.rkt" "../types.rkt" "qast.rkt")
 
 ;; Registers
 ;; rdi, rsi, rdx, rcx, r8, and r9 <- left-to right for Sys V ABI calling conventions
@@ -36,6 +36,7 @@
       (Extern 'peek_byte)
       (Extern 'read_byte)
       (Extern 'write_byte)
+      (Extern 'displayln)
       (Extern 'raise_error)
 
       ;; Before calling functions from other object files (e.g.
@@ -143,6 +144,7 @@
     [(Eof)                      (compile-value eof)]
     [(Empty)                    (compile-value '())]
     [(Var x)                    (compile-var x cenv)]
+    [(String s)                 (compile-string s)]
     [(Lambda name params body)  (compile-lambda name params (free-variables expr) cenv)]
 
     ;; Primitives
@@ -175,6 +177,39 @@
 (define (compile-var x cenv)
   (let ([i (lookup x cenv)])
     (seq (Mov rax (Offset rsp i)))))
+
+;; compile-string: (String s) -> ASM
+;; In this implementation, a string is a pointer to a size `n`, which
+;; indicates the amount `n` of contiguous spaces in the heap that are
+;; reserved for the strings
+(define (compile-string s)
+  (let ([length (string-length s)])
+    (seq
+     ;; First we place the size of the string on the heap
+     (Mov r8 (immediate->bits length))
+     (Mov (Offset rbx 0) r8)
+
+     ;; Then, similar to compiling lambdas, we must add the
+     ;; actual `n` characters on the heap.
+     ;; We move the pointer to r9 as a backup and add 8, since we
+     ;; need to skip the length we just put in
+     (Mov r9 rbx)
+     (Add r9 8)
+     (copy-str-to-heap (string->list s) 0)
+
+     ;; Finally we return a pointer to the string
+     (Mov rax rbx)
+     (Or rax type-string)
+     (Add rbx (* 8 (+ 1 length))))))
+
+(define (copy-str-to-heap s offset)
+  (match s
+    ['() (seq)]
+    [(cons ch chs)
+     (seq
+      (compile-value ch)
+      (Mov (Offset r9 offset) rax)
+      (copy-str-to-heap chs (+ 8 offset)))]))
 
 (define (compile-prim0 p cenv)
   (match p
@@ -244,6 +279,41 @@
             (Mov rax val-false)
             (Label l1)))]
 
+    ['integer?
+     (let ([l1 (gensym)])
+       (seq (And rax mask-int)
+            (Xor rax type-int)
+            (Cmp rax 0)
+            (Mov rax val-true)
+            (Je l1)
+            (Mov rax val-false)
+            (Label l1)))]
+
+    ['boolean?
+     (let ([l1 (gensym)])
+       (seq (And rax mask-bool)
+            ;; There's no type-bool per se, so we have to check
+            ;; both val-true and val-false
+
+            ;; We first try out #t, notice we have to use r8 to
+            ;; avoid losing the original value
+            (Mov r8 rax)
+            (Xor r8 val-true)
+            (Cmp r8 0)
+            (Mov r8 val-true)
+            (Je l1)
+
+            (Mov r8 rax)
+            (Xor r8 val-false)
+            (Cmp r8 0)
+            (Mov r8 val-true)
+            (Je l1)
+
+            (Mov rax val-false)
+
+            (Label l1)
+            (Mov rax r8)))]
+
     ['char?
      (let ([l1 (gensym)])
        ;; AND gives us the last two bits
@@ -251,6 +321,16 @@
        ;; the same, i.e. if the last bits are 01, type char
        (seq (And rax mask-char)
             (Xor rax type-char)
+            (Cmp rax 0)
+            (Mov rax val-true)
+            (Je l1)
+            (Mov rax val-false)
+            (Label l1)))]
+
+    ['string?
+     (let ([l1 (gensym)])
+       (seq (And rax ptr-mask)
+            (Xor rax type-string)
             (Cmp rax 0)
             (Mov rax val-true)
             (Je l1)
@@ -296,6 +376,13 @@
           (unpad-stack cenv)
           (Mov rax val-void))]
 
+    ['displayln
+     (seq (pad-stack cenv)
+          (Mov rdi rax)
+          (Call 'displayln)
+          (unpad-stack cenv)
+          (Mov rax val-void))]
+
     ;; Inductive Data
     ['box
      (seq (Mov (Offset rbx 0) rax)
@@ -316,6 +403,11 @@
     ['cdr
      (seq (assert-cons rax)
           (Xor rax type-cons)
+          (Mov rax (Offset rax 0)))]
+
+    ['string-length
+     (seq (assert-string rax)
+          (Xor rax type-string)
           (Mov rax (Offset rax 0)))]))
 
 
@@ -406,7 +498,35 @@
           (Mov (Offset rbx 8) rax)
           (Mov rax rbx)
           (Or rax type-cons)
-          (Add rbx 16))]))
+          (Add rbx 16))]
+
+    ['string-ref
+     (let ([in-bounds (gensym)])
+       (seq
+        ;; Fetch the first argument (the index) from the stack
+        ;; The second argument is in the stack, it is the string pointer
+        ;; We don't need to assert because that was done in compile-time
+        (Pop r8)
+
+        ;; Then, we get the address part of the pointer, to which
+        ;; we add the offset of the function call. This offset will be
+        ;; a multiple of 8, because in parse.rkt we multiply it by 8 before
+        ;; parsing it.
+        ;;
+        ;; This gives us an integer-representation of our index, so
+        ;; we must shift it to the right.
+        ;;
+        ;; Since our addresses are in eights, this is basically what we are doing (e.g. index = 8)
+        ;; Index -> 100  0         000
+        ;;          ^ 8  ^int tag  ^ immediate tag
+        ;;
+        ;; After shift:
+        ;; Index -> 000 1 000
+        (Xor rax type-string) ;; rax <- address
+        (Sar r8 int-shift)    ;; offset
+        (Add rax r8)
+        ;; We can use 0 because rax already has the correct address(!) stonks
+        (Mov rax (Offset rax 0))))]))
 
 ;; Conditional
 (define (compile-if e1 e2 e3 cenv)
@@ -626,6 +746,8 @@
      ;; Since f is (allegedly) a lambda, this means not only that we
      ;; get the pointer back at rax, but also that we have pushed the
      ;; amount of free variables onto the heap, see compile-lambda
+     ;;
+     ;; tldr with this we have pushed the function pointer onto the stack
      (compile-e f env+)
      (Push rax)
 
@@ -854,6 +976,9 @@
 
 (define assert-cons
   (assert-type ptr-mask type-cons))
+
+(define assert-string
+  (assert-type ptr-mask type-string))
 
 (define assert-proc
   (assert-type ptr-mask type-proc))

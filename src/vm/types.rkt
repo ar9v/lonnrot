@@ -38,7 +38,7 @@
 (define type-proc #b100)
 
 (define (bits->value b)
-  (cond [(= type-int (bitwise-and b #b1))
+  (cond [(= type-int (bitwise-and b mask-int))
          ;; We shift b right by 1 bit, i.e. we drop
          ;; the bit flag, so we have the integer representation
          (arithmetic-shift b (- int-shift))]
@@ -74,3 +74,30 @@
 
         [(void? v)  val-void]
         [(empty? v) val-empty]))
+
+
+;; Immediate Predicates
+(define (bit-int? i)
+  (= type-int (bitwise-and i mask-int)))
+
+(define (bit-char? c)
+  (= type-char (bitwise-and c mask-char)))
+
+(define (val-true? v)
+  (= v val-true))
+
+(define (val-false? v)
+  (= v val-false))
+
+;; Pointer predicates
+(define (bit-cons? c)
+  (= type-cons (bitwise-and c ptr-mask)))
+
+(define (bit-box? b)
+  (= type-box (bitwise-and b ptr-mask)))
+
+(define (bit-f? f)
+  (= type-proc (bitwise-and f ptr-mask)))
+
+(define (bit-string? s)
+  (= type-string (bitwise-and s ptr-mask)))

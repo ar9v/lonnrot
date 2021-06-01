@@ -1,26 +1,11 @@
 #lang racket
-(provide run)
-(require
- ;; a86
- "qast.rkt"
- racket/struct "types.rkt")
- ;;"qast.rkt") ;; TODO: eventually migrate structs to own homonymous structs
-
-;; Data structures
-;; The stack:
-;; A list, this way we can perform lookups and so on
-;;
-;; Registers:
-;; A hashmap, with the symbol representing the register
-;; being accessed
-;;
-;; Flags:
-;; For now we only need the EQ flag
-
-(struct ptr (type addr) #:prefab)
+(provide main)
+(require "qast.rkt" racket/struct "types.rkt")
+(define-namespace-anchor anc)
+(define ns (namespace-anchor->namespace anc))
 
 (struct vm
-  (ip sp flags regs code s h label-map halt)
+  (ip flags regs code mem label-map halt)
   #:mutable
 
   #:methods gen:custom-write
@@ -28,19 +13,20 @@
      (make-constructor-style-printer
       (lambda (obj) 'vm)
       (lambda (obj) (list (vm-ip obj)
-                          (vm-sp obj)
                           (vm-flags obj)
                           (vm-regs obj)
                           (vm-code obj)
-                          (vm-s obj)
-                          (vm-h obj)
+                          (vm-mem obj)
                           (vm-label-map obj)
                           (vm-halt obj)))))])
 
-(define test-file "test.obj")
+;; TODO:
+;; - Print result function
+;; - Call
+(define test-file "test-def.obj")
 
-;; getHalt: [#(Op _ ...)] x Int -> Int
-;; getHalt takes a list of ops and an integer which represents
+;; get-halt: [#(Op _ ...)] x Int -> Int
+;; get-halt takes a list of ops and an integer which represents
 ;; an accumulator; this will tell us where is the return for
 ;; 'entry
 (define (get-halt code ip)
@@ -48,34 +34,34 @@
     [(Ret) ip]
     [_ (get-halt (cdr code) (add1 ip))]))
 
-(define (get-addr-labels code addrHash ip)
+(define (get-addr-labels code addr-hash ip)
   (match code
-    ['() addrHash]
+    ['() addr-hash]
     [_
      (match (car code)
        [(Label l)
-        (get-addr-labels (cdr code) (hash-set addrHash l ip) (add1 ip))]
-       [_ (get-addr-labels (cdr code) addrHash (add1 ip))])]))
+        (get-addr-labels (cdr code) (hash-set addr-hash l ip) (add1 ip))]
+       [(Extern l)
+        (get-addr-labels (cdr code) (hash-set addr-hash l (list l)) (add1 ip))]
+       [_ (get-addr-labels (cdr code) addr-hash (add1 ip))])]))
 
 ;; main: String -> Answer
 ;; Main reads an image file, which is a list of a86 ops
 ;; and calls the VM's run function
 (define (main image-file)
   (let* ([filename-port (open-input-file image-file)]
-         [code (eval (read filename-port))]
-         [labelMap (get-addr-labels code (hash) 0)]
+         [code (eval (read filename-port) ns)]
+         [label-map (get-addr-labels code (hash) 0)]
          [halt (get-halt code 0)])
     (run
      (vm
-      0                                                                ;; ip
-      1                                                                ;; stack pointer
-      (hash 'eq #f 'lt #f 'gt #f)                                         ;; Flags
-      (hash 'rax 0 'rbx 0 'rcx 0 'rdx 0 'r8  0 'r9  0 'rdi (ptr 'h 0)) ;; registers
-      code                                                             ;; [Instruction]
-      '()                                                              ;; Stack
-      (build-list 8000 (lambda (x) 0))                                 ;; Heap
-      labelMap                                                         ;; <Symbol, Integer (Address)>
-      halt))))                                                         ;; Int
+      0                                                                  ;; ip
+      (hash 'eq #f 'lt #f 'gt #f)                                        ;; Flags
+      (hash 'rax 0 'rbx 0 'rcx 0 'rdx 0 'r8  0 'r9  0 'rdi 0 'rsp 79999) ;; registers
+      code                                                               ;; [Instruction]
+      (build-list 80000 (lambda (x) 0))                                  ;; Memory
+      label-map                                                          ;; <Symbol, Integer (Address)>
+      halt))))                                                           ;; Int
 
 ;; run: VM -> Answer
 ;; run takes a vm struct, which represents a state at a given time
@@ -83,7 +69,7 @@
 ;; been found
 (define (run vm)
   (cond [(= (vm-ip vm) (vm-halt vm))
-         (bits->value (hash-ref (vm-regs vm) 'rax))]
+         (print_result (hash-ref (vm-regs vm) 'rax) vm)]
         [else
          (op-dispatch vm)
          (run vm)]))
@@ -130,6 +116,12 @@
       [(? Sub? op)
        (asm-sub op vm)]
 
+      [(? Call? op)
+       (call op vm)]
+
+      [(? Ret? op)
+       (ret op vm)]
+
       [(Push _)
        (push op vm)]
       [(Pop _)
@@ -147,21 +139,32 @@
   (list-ref (vm-code vm)
             (vm-ip vm)))
 
-;; fetch-offset: Reg x Offset x VM -> Address Pointer (Either (s . Int) | (h . Int))
+
+;; MEMORY MANIPULATION
+;; fetch-offset: Reg x Offset x VM -> Address
 ;; fetch-offset takes a register, whose value should be an address,
-;; an offset, and a VM and returns the given memory location, which
-;; is a pair signaling which memory (stack or heap) and its address
+;; an offset, and a VM and returns the resulting memory location
+;;
+;; If we point to rsp, then we want to look upwards, i.e. to stuff
+;; behind in the stack, if we point to the heap, we want to look downards
+;; TODO: how do we tell when we are offsetting rax, etc.?
 (define (fetch-offset reg off vm)
-  (let ([p (reg->val reg vm)])
-    (ptr (ptr-type p)
-         (+ off (ptr-addr p)))))
+  (+ (reg->val reg vm) off))
 
-;; deref-ptr: (Sym . Int) x VM -> Value
+;; deref-ptr: Address x VM -> Value
 (define (deref-ptr p vm)
-  (match p
-    [(ptr 's addr) (list-ref (vm-s vm) (ptr-addr p))]
-    [(ptr 'h addr) (list-ref (vm-h vm) (ptr-addr p))]))
+  (let ([mem (vm-mem vm)])
+    (list-ref mem p)))
 
+;; load-to-mem: Int x Address x VM -> VM
+;; load-to-mem takes an integer, an address and a vm and returns a
+;; vm with updated state
+(define (load-to-mem v p vm)
+  (let ([mem (vm-mem vm)])
+    (set-vm-mem! vm (list-set mem p v))
+    vm))
+
+;; ASM INSTRUCTIONS
 ;; mov: Op x VM -> VM
 ;; mov takes a vector, an op, and a VM, and returns
 ;; a VM where register `x` in #(Op x y) has been set
@@ -171,29 +174,16 @@
 ;; arg 1 - A register or an offset
 ;; arg 2 - A register, an offset or an integer
 (define (mov op vm)
-  (let ([regs (vm-regs vm)]
-        [stack (vm-s vm)]
-        [heap (vm-h vm)])
+  (let ([regs (vm-regs vm)])
     (match op
-      ;; Dst = register, Src = register
-      [(Mov (? register? dst) (? register? src))
-       (set-vm-regs! vm (hash-set regs dst (reg->val src vm)))]
 
-      ;; Dst = register, Src = Offset
-      [(Mov (? register? dst) (Offset src o))
-       (set-vm-regs! vm (hash-set regs dst (deref-ptr (fetch-offset src o vm))))]
+      ;; Destination is a register
+      [(Mov (? register? dst) src)
+       (set-vm-regs! vm (hash-set regs dst (operand->value src vm)))]
 
-      ;; Dst = register, Src = Integer
-      [(Mov (? register? dst) (? integer? v))
-       (set-vm-regs! vm (hash-set regs dst v))]
-
-      ;; Dst = Offset, Src = Register
-      [(Mov (Offset dst o) (? register? src))
-       (load-to-mem (reg->val src vm) (fetch-offset dst o vm) vm)]
-
-      ;; Dst = Offset, Src = Integer
-      [(Mov (Offset dst o) (? integer? v))
-       (load-to-mem v (fetch-offset dst o vm) vm)]
+      ;; Destination is an offset
+      [(Mov (Offset dst o) src)
+       (load-to-mem (operand->value src vm) (fetch-offset dst o vm) vm)]
 
       [_ (error "Invalid MOV operation" op)])
 
@@ -207,113 +197,80 @@
 ;; dst: Either Register Offset
 ;; label: symbol
 (define (lea op vm)
-  (let ([regs (vm-regs vm)]
-        [labelAddrs (vm-label-map vm)])
-    (match op
-      [(Lea (? register? dst) s)
-       (set-vm-regs! vm (hash-set regs dst (hash-ref labelAddrs s)))]
+  (let* ([regs (vm-regs vm)]
+         [label-addrs (vm-label-map vm)]
+         [dst-addr (hash-ref label-addrs (Lea-x op))])
+    (match (Lea-dst op)
+      [(? register? dst)
+       (set-vm-regs! vm (hash-set regs dst dst-addr))]
 
-      [(Lea (Offset dst o) s)
-       (load-to-mem (hash-ref labelAddrs s) (fetch-offset dst o vm) vm)])
+      [(Offset dst o)
+       (load-to-mem dst-addr (fetch-offset dst o vm) vm)])
 
     (set-vm-ip! vm (add1 (vm-ip vm)))))
 
 
 (define (bit-op f op vm)
-  (let ([regs (vm-regs vm)]
-        [stack (vm-s vm)]
-        [heap (vm-h vm)])
+  (let ([regs (vm-regs vm)])
 
     (match op
-      ;; Dst = register, Src = register
-      [(cons (? register? dst) (? register? src))
+      [(cons (? register? dst) src)
        (set-vm-regs!
         vm
-        (hash-set regs dst (f (reg->val dst vm) (reg->val src vm))))]
-
-      ;; Dst = register, Src = Offset
-      [(cons (? register? dst) (Offset src o))
-       (set-vm-regs!
-        vm
-        (hash-set regs dst (f (reg->val dst vm) (deref-ptr (fetch-offset src o vm)))))]
-
-      ;; Dst = register, Src = Integer
-      [(cons (? register? dst) (? integer? v))
-       (set-vm-regs! vm (hash-set regs dst (f (reg->val dst vm) v)))]
+        (hash-set regs dst (f (operand->value dst vm) (operand->value src vm))))]
 
       ;; NOTE: In our compiler we never produce an offset destination
       [_ (error "Invalid bitwise operation" op)])
 
     (set-vm-ip! vm (add1 (vm-ip vm)))))
 
-;; aor: Op x VM -> VM
-;; aor takes (Or dst src) and returns a vm where dst is now
-;; (bitwise-ior dst src)
-(define (bit-or op vm)
-  (bit-op bitwise-ior (cons (Or-dst op) (Or-src op)) vm))
+(define (bit-or op vm) (bit-op bitwise-ior (cons (Or-dst op) (Or-src op)) vm))
+(define (bit-and op vm) (bit-op bitwise-and (cons (And-dst op) (And-src op)) vm))
+(define (bit-xor op vm) (bit-op bitwise-xor (cons (Xor-dst op) (Xor-src op)) vm))
 
-(define (bit-and op vm)
-  (bit-op bitwise-and (cons (And-dst op) (And-src op)) vm))
-
-(define (bit-xor op vm)
-  (bit-op bitwise-xor (cons (Xor-dst op) (Xor-src op)) vm))
 
 (define (push op vm)
-  (match op
-    [(Push (? register? src))
-     (set-vm-s! vm (cons (reg->val src vm) (vm-s vm)))
-     (set-vm-sp! vm (add1 (vm-sp vm)))]
+  (let ([mem (vm-mem vm)]
+        [regs (vm-regs vm)])
 
-    [(Push (? integer? v))
-     (set-vm-s! vm (cons v (vm-s vm)))
-     (set-vm-sp! vm (add1 (vm-sp vm)))])
+    ;; Decrement rsp
+    (set-vm-regs!
+     vm
+     (hash-set regs 'rsp (- (hash-ref regs 'rsp) 8)))
 
-  (set-vm-ip! vm (add1 (vm-ip vm))))
+    (load-to-mem (operand->value (Push-a1 op) vm)
+                 (fetch-offset 'rsp 0 vm)
+                 vm)
+
+    ;; Increment ip
+    (set-vm-ip! vm (add1 (vm-ip vm)))
+    vm))
 
 (define (pop op vm)
   (let ([regs (vm-regs vm)])
-    (match op
-      [(Pop (? register? dst))
-       (set-vm-regs! vm
-                     (hash-set regs dst (car (vm-s vm))))
-       (set-vm-s! vm (cdr (vm-s vm)))
-       (set-vm-sp! vm (sub1 (vm-sp vm)))])
 
-  (set-vm-ip! vm (add1 (vm-ip vm)))))
+    ;; First, we fetch the value from the stack
+    (set-vm-regs!
+     vm
+     (hash-set regs (Pop-a1 op) (operand->value (Offset 'rsp 0) vm)))
+
+    ;; Then we increment (i.e. shrink) the stack pointer
+    (set-vm-regs!
+     vm
+     (hash-set (vm-regs vm) 'rsp (+ (operand->value 'rsp vm) 8)))
+
+    ;; Finally, we increment the ip
+    (set-vm-ip! vm (add1 (vm-ip vm)))
+    vm))
 
 (define (cmp op vm)
-  (match op
-    [(Cmp (? register? r1) (? register? r2))
-     (let ([a1 (reg->val r1 vm)]
-           [a2 (reg->val r2 vm)])
-       (set-flags a1 a2 vm))]
+  (let ([dst (Cmp-a1 op)]
+        [src (Cmp-a2 op)])
+    (set-flags (operand->value dst vm)
+               (operand->value src vm)
+               vm)
 
-    [(Cmp (? register? r1) (Offset r2 o))
-     (let ([a1 (reg->val r1 vm)]
-           [a2 (deref-ptr (fetch-offset r2 o vm))])
-       (set-flags a1 a2 vm))]
-
-    [(Cmp (? register? r1) (? integer? v))
-     (let ([a1 (reg->val r1 vm)]
-           [a2 v])
-       (set-flags a1 a2 vm))]
-
-    [(Cmp (Offset r1 o) (? register? r2))
-     (let ([a1 (deref-ptr (fetch-offset r1 o vm))]
-           [a2 (reg->val r2 vm)])
-       (set-flags a1 a2 vm))]
-
-    [(Cmp (Offset r1 o1) (Offset r2 o2))
-     (let ([a1 (deref-ptr (fetch-offset r1 o1 vm))]
-           [a2 (deref-ptr (fetch-offset r2 o2 vm))])
-       (set-flags a1 a2 vm))]
-
-    [(Cmp (Offset r o) (? integer? v))
-     (let ([a1 (deref-ptr (fetch-offset r o vm))]
-           [a2 v])
-       (set-flags a1 a2 vm))])
-
-  (set-vm-ip! vm (add1 (vm-ip vm))))
+   (set-vm-ip! vm (add1 (vm-ip vm)))))
 
 (define (set-flags a1 a2 vm)
   (cond [(< a1 a2)
@@ -325,7 +282,12 @@
 
 
 (define (jmp op vm)
-  (set-vm-ip! vm (hash-ref (vm-label-map vm) (Jmp-x op))))
+  (match (hash-ref (vm-label-map vm) (Jmp-x op))
+    [(? integer? addr)
+     (set-vm-ip! vm (hash-ref (vm-label-map vm) (Jmp-x op)))]
+
+    ;; Not an address, but a runtime operation
+    [form (eval form ns)]))
 
 (define (jl op vm)
   (if (get-flag vm 'lt)
@@ -355,29 +317,49 @@
      vm
      (hash-set
       regs dst
-      (+ (reg->val dst vm) (operand->value (Add-src op) vm))))
+      (+ (operand->value dst vm) (operand->value (Add-src op) vm))))
 
     (set-vm-ip! vm (add1 (vm-ip vm)))))
 
 
 (define (asm-sub op vm)
  (let ([regs (vm-regs vm)]
-        [dst (Add-dst op)])
+        [dst (Sub-dst op)])
     (set-vm-regs!
      vm
      (hash-set
       regs dst
-      (- (reg->val dst vm) (operand->value (Add-src op) vm))))
+      (- (operand->value dst vm) (operand->value (Sub-src op) vm))))
 
     (set-vm-ip! vm (add1 (vm-ip vm)))))
 
-;; load-to-mem: Int x Ptr x VM -> VM
-;; load-to-mem takes an integer, a pointer and a vm and returns a
-;; vm with updated state
-(define (load-to-mem v p vm)
-  (match (ptr-type p)
-    ['s (set-vm-s! vm (list-set (vm-s vm) (ptr-addr p) v))]
-    ['h (set-vm-h! vm (list-set (vm-h vm) (ptr-addr p) v))]))
+
+;; Calls
+(define (call op vm)
+  (let ([ret-label (string->symbol (string-append (symbol->string (Call-x op)) "ret"))])
+    ;; Stick the return symbol with the address in the symbol map
+    (set-vm-label-map!
+     vm
+     (hash-set (vm-label-map vm) ret-label (vm-ip vm)))
+
+    ;; Load the current code address onto rax
+    ;; We don't use `lea` to avoid moving ip
+    (set-vm-regs!
+     vm
+     (hash-set (vm-regs vm) 'rax (vm-ip vm)))
+
+    ;; Push that onto the stack
+    (push (Push 'rax) vm)
+    (set-vm-ip! vm (sub1 (vm-ip vm))) ;; Again, keep ip consistent
+
+    (jmp (Call-x op) vm)))
+
+
+(define (ret op vm)
+  ;; Pop the stack
+  (pop (Pop 'rbx) vm)
+  (set-vm-ip! vm (sub1 (vm-ip vm)))
+  (jmp 'rbx))
 
 (define (operand->value op vm)
   (match op
@@ -394,18 +376,37 @@
 (define (get-flag vm s)
   (hash-ref (vm-flags vm) s))
 
-;; (Push x)
-;; -> Decrements rsp (Sub rsp 8)
-;; -> Moves `x` to the top frame (Mov (Offset rsp 0) x)
-;;
-;; (Pop x)
-;; -> Moves what is pointed to by rsp onto x (Mov x (Offset rsp 0))
-;; -> Increments rsp (Add rsp 8)
-;;
-;; (Call f)
-;; -> push the return address (i.e. where we left off)
-;; -> jumps to label pointed to by f
-;;
-;; (Ret)
-;; -> pops the return address from the stack
-;; -> jumps to this address
+;; RUNTIME
+(define (raise_error)
+  (error "VM Crash"))
+
+(define (print_result res vm)
+  (cond [(bit-cons? res) (print_cons res vm)]
+        [(bit-box? res)
+         (box (bits->value (deref-ptr (bitwise-xor res type-box) vm)))]
+        [(bit-f? res) '<PROC>]
+        [(bit-string? res) (list->string (print_string res vm))]
+        [(bit-int? res)
+         (bits->value res)]
+        [(bit-char? res)
+         (let ([codepoint (bits->value res)])
+           (integer->char codepoint))]
+        [(val-true? res) #t]
+        [(val-false? res) #f]
+        [(= res val-void) (void)]
+        [(= res val-empty) '()]))
+
+(define (print_cons res vm)
+  (let ([head (deref-ptr (bitwise-xor (+ 8 res) type-cons) vm)]
+        [tail (deref-ptr (bitwise-xor res type-cons) vm)])
+    (cons (print_result head vm)
+          (cond [(= tail val-empty) '()]
+                [(bit-cons? tail) (print_cons tail vm)]
+                [else (bits->value tail)]))))
+
+(define (print_string res vm)
+  (let* ([str-ptr (deref-ptr (bitwise-xor res type-string) vm)]
+         [len (bits->value str-ptr)])
+
+    (for/list ([i (range len)])
+      (print_result (deref-ptr (bitwise-xor (+ res (* 8 (add1 i))) type-string) vm) vm))))

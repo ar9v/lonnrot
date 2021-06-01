@@ -45,4 +45,4 @@
 (define (mult e1 e2 acc)
     (if (= e2 1)
         acc
-        (mult e1 (sub1 e2) (+ acc e1)))) 
+        (mult e1 (sub1 e2) (+ acc e1))))
