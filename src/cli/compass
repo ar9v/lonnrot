@@ -17,7 +17,7 @@ Possible options are:
 EOF
 }
 
-srcPath="../"
+srcPath=".."
 filename=${2%%\.*}
 
 compile() {
