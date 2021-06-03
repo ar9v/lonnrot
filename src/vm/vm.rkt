@@ -130,9 +130,7 @@
        (pop op)]
 
       [(Lea _ _)
-       (lea op)]
-      [(Ret)
-       (set-vm-ip! VM (add1 (vm-ip VM)))])))
+       (lea op)])))
 
 ;; load-op: VM -> Instruction
 ;; load-op takes a vm and, using its current ip, produces
@@ -149,7 +147,6 @@
 ;;
 ;; If we point to rsp, then we want to look upwards, i.e. to stuff
 ;; behind in the stack, if we point to the heap, we want to look downards
-;; TODO: how do we tell when we are offsetting rax, etc.?
 (define (fetch-offset reg off)
   (+ (reg->val reg) off))
 
@@ -348,9 +345,11 @@
 
     ;; Load the current code address onto rax
     ;; We don't use `lea` to avoid moving ip
-    (set-vm-regs!
-     VM
-     (hash-set (vm-regs VM) 'rax (vm-ip VM)))
+    ;; (set-vm-regs!
+    ;;  VM
+    ;;  (hash-set (vm-regs VM) 'rax (vm-ip VM)))
+    (lea (Lea 'rax ret-label))
+    (set-vm-ip! VM (sub1 (vm-ip VM))) ;; Again, keep ip consistent
 
     ;; Push that onto the stack
     (push (Push 'rax))
