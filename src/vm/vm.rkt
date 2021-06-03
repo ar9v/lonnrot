@@ -20,11 +20,6 @@
                           (vm-label-map obj)
                           (vm-halt obj)))))])
 
-;; TODO:
-;; - Print result function
-;; - Call
-(define test-file "test-def.obj")
-
 ;; get-halt: [#(Op _ ...)] x Int -> Int
 ;; get-halt takes a list of ops and an integer which represents
 ;; an accumulator; this will tell us where is the return for
@@ -81,6 +76,8 @@
 (define (op-dispatch vm)
   (let ([op (load-op vm)])
     (displayln op)
+    (displayln (vm-ip vm))
+    (displayln (vm-regs vm))
     (match op
       [(? Extern? op)
        (set-vm-ip! vm (add1 (vm-ip vm))) vm]
@@ -96,6 +93,11 @@
        (bit-and op vm)]
       [(? Xor? op)
        (bit-xor op vm)]
+
+      [(? Sal? op)
+       (sal op vm)]
+      [(? Sar? op)
+       (sar op vm)]
 
       [(? Cmp? op)
        (cmp op vm)]
@@ -282,11 +284,12 @@
 
 
 (define (jmp op vm)
+  ;; We check if Jmp's arg is a register, if it is we get its address
   (match (hash-ref (vm-label-map vm) (Jmp-x op))
     [(? integer? addr)
-     (set-vm-ip! vm (hash-ref (vm-label-map vm) (Jmp-x op)))]
+     (set-vm-ip! vm addr)]
 
-    ;; Not an address, but a runtime operation
+    ;; It's a runtime operation
     [form (eval form ns)]))
 
 (define (jl op vm)
@@ -337,6 +340,12 @@
 ;; Calls
 (define (call op vm)
   (let ([ret-label (string->symbol (string-append (symbol->string (Call-x op)) "ret"))])
+    ;; If we are calling from a register, we should create a
+    ;; mapping from that register to the address it holds
+    (when (register? (Call-x op))
+      (set-vm-label-map! vm
+                         (hash-set (vm-label-map vm) (Call-x op) (operand->value (Call-x op) vm))))
+
     ;; Stick the return symbol with the address in the symbol map
     (set-vm-label-map!
      vm
@@ -352,15 +361,38 @@
     (push (Push 'rax) vm)
     (set-vm-ip! vm (sub1 (vm-ip vm))) ;; Again, keep ip consistent
 
-    (jmp (Call-x op) vm)))
-
+    (jmp (Jmp (Call-x op)) vm)))
 
 (define (ret op vm)
   ;; Pop the stack
   (pop (Pop 'rbx) vm)
   (set-vm-ip! vm (sub1 (vm-ip vm)))
-  (jmp 'rbx))
 
+  ;; As in `call`, create a mapping of the register in the label-map
+  ;; for rbx
+  (set-vm-label-map! vm (hash-set (vm-label-map vm)
+                                  'rbx (add1 (operand->value 'rbx vm))))
+
+  (jmp (Jmp 'rbx) vm))
+
+;; Bit twiddling
+(define (sal op vm)
+  (let ([reg (Sal-dst op)])
+    (set-vm-regs!
+     vm
+     (hash-set (vm-regs vm) reg (arithmetic-shift (operand->value reg vm) (Sal-i op))))
+
+    (set-vm-ip! vm (add1 (vm-ip vm)))))
+
+(define (sar op vm)
+  (let ([reg (Sal-dst op)])
+    (set-vm-regs!
+     vm
+     (hash-set (vm-regs vm) reg (arithmetic-shift (operand->value reg vm) (- (Sal-i op)))))
+
+    (set-vm-ip! vm (add1 (vm-ip vm)))))
+
+;; Helpers
 (define (operand->value op vm)
   (match op
     [(? register? op) (reg->val op vm)]
@@ -381,6 +413,7 @@
   (error "VM Crash"))
 
 (define (print_result res vm)
+  (display res)
   (cond [(bit-cons? res) (print_cons res vm)]
         [(bit-box? res)
          (box (bits->value (deref-ptr (bitwise-xor res type-box) vm)))]
