@@ -75,9 +75,6 @@
 ;; the new state
 (define (op-dispatch vm)
   (let ([op (load-op vm)])
-    (displayln op)
-    (displayln (vm-ip vm))
-    (displayln (vm-regs vm))
     (match op
       [(? Extern? op)
        (set-vm-ip! vm (add1 (vm-ip vm))) vm]
@@ -413,7 +410,6 @@
   (error "VM Crash"))
 
 (define (print_result res vm)
-  (display res)
   (cond [(bit-cons? res) (print_cons res vm)]
         [(bit-box? res)
          (box (bits->value (deref-ptr (bitwise-xor res type-box) vm)))]

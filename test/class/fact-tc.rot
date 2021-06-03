@@ -1,0 +1,8 @@
+;; !: Int -> Int
+;; ! takes an integer and returns and computes its factorial
+(define (! n acc)
+ (if (zero? n)
+     acc
+     (! (sub1 n) (* n acc))))
+
+(! 5 1)
