@@ -3,33 +3,34 @@
 \railalias{til}{\~{}}
 \railalias{uscore}{\textunderscore}
 \railalias{caret}{\^{}}
-\railalias{bs}{\char''5C}
+\railalias{bs}{\textbackslash}
 \railterm{dol, amp, til, uscore, caret, bs}
 \begin{rail}
   datum : boolean
-  | character
+  | char
   | variable
   | string
-  | number
+  | integer
   | list
   ;
 
   boolean : '\#t' | '\#f' ;
 
-  char : anyCharacter ;
-
-  number : integer | decimal ;
-
-  integer : digit + ;
-
-  decimal : integer '.' digit + ;
+  char : '\#' bs anyCharacter ;
 
   variable : initial (subsequent*) ;
 
   initial : letter | '!' | dol | amp | '*' | '/' | ':' | '<' | '=' | '>' | '?' | til | uscore | caret ;
 
+  digit : [0--9] ;
+
+  subsequent : initial | digit | '.' | '+' | '-' | amp ;
+
   letter : [a--z] | [A--Z] ;
 
+  string : '"' anyCharacter '"' ;
+
+  integer : digit + ;
 
   list : '(' (datum *) ')' | '(' (datum +) '.' datum ')'
 

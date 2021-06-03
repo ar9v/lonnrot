@@ -5,24 +5,31 @@
 
     <form>        ::= <definition> | <expression>
 
-    <definition>  ::= (\texttt{define} <variable> <expression>)
+    <definition>  ::= (\texttt{define} <formals> <expression>+)
+
+    <lambda>      ::= (\texttt{lambda} <formals> <expression>+)
 
     <expression>  ::= <constant>
-    \indalt <variable>
-    \indalt (\texttt{quote} <datum>)
-    \indalt (\texttt{fresh} <formals> <expression> <expression>*)
-    \indalt (\texttt{==} <expression> <expression>)
-    \indalt (\texttt{run} <digit> <formals> <expression>)
-    \indalt (\texttt{lambda} <formals> <expression> <expression>*)
-    \indalt (\texttt{if} <expression> <expression> <expression>)
-    \indalt (\texttt{set!} <variable> <expression>)
-    \indalt <application>
+    \indalt\ <variable>
+    \indalt\ (\texttt{quote} ())
+    \indalt\ (\texttt{if} <expression> <expression> <expression>)
+    \indalt\ (\texttt{cond} <clause>* <else-clause>)
+    \indalt\ (\texttt{let} (<binding>) <expression>+)
+    \indalt\ (\texttt{letrec} (<fix-bind>*) <expression>+)
+    \indalt\ <lambda>
+    \indalt\ <application>
 
-    <constant>    ::= <boolean> | <number> | <char> | <string>
+    <clause> ::= (<expression> <expression>+)
 
-    <formals>     ::= <variable>
-    \indalt (<variable>*)
-    \indalt (<variable> <variable>* . <variable>)
+    <else-clause> ::= (\textbf{else} <expression>+)
 
-    <application> ::= (<expression> <expression>*)
+    <binding> ::= (<variable> <expression>)
+
+    <fix-bind> ::= (<variable> <lambda>)
+
+    <constant>    ::= <boolean> | <number> | <char> | <string> | <list>
+
+    <formals>     ::= (<variable>+)
+
+    <application> ::= (<variable> <expression>*)
 \end{grammar}

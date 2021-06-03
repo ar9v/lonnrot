@@ -17,8 +17,7 @@ Possible options are:
 EOF
 }
 
-# TODO: write an install script to avoid hardcoding this
-srcPath=".."
+srcPath="../"
 filename=${2%%\.*}
 
 compile() {

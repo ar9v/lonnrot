@@ -10,23 +10,30 @@
 
   form : definition | expression ;
 
-  definition : '(' 'define' variable expression ')' ;
+  definition : '(' 'define' formals (expression+) ')' ;
+
+  lambda : '(' 'lambda' formals (expression*) ')' ;
 
   expression : constant
   | variable
-  | '(' 'quote' datum ')'
-  | '(' 'fresh' formals expression (expression*) ')'
-  | '(' '==' expression expression ')'
-  | '(' 'run' digit formals expression ')'
-  | '(' 'lambda' formals expression (expression*) ')'
+  | '(' 'quote' '(' ')' ')'
   | '(' 'if' expression expression expression ')'
-  | '(' 'set!' variable expression ')'
+  | '(' 'cond' (clause*) elseClause ')'
+  | '(' 'let' '(' binding ')' (expression*) ')'
+  | '(' 'letrec' '(' (fixBind+) ')' (expression*) ')'
+  | lambda
   | application ;
 
-  formals : variable
-  | '(' (variable*) ')'
-  | '(' variable (variable*) '.' variable ')' ;
+  clause : '(' expression (expression+) ')' ;
 
-  application : '(' expression (expression*) ')' ;
+  elseClause :  '(' 'else' (expression+) ')' ;
+
+  binding : '(' variable expression ')' ;
+
+  fixBind : '(' variable lambda ')' ;
+
+  formals : '(' (variable*) ')' ;
+
+  application : '(' variable (expression*) ')' ;
 
 \end{rail}

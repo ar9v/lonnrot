@@ -16,7 +16,7 @@
 % -------------------------------PREAMBLE--------------------------------- %
 \input{chapters/preamble_tufte}
   
-\title{The Lonnrot Language}
+\title{Lonnrot Scheme}
 \author{Andrés Ricardo Garza Vela}
 
 
@@ -46,6 +46,11 @@
 \newcommand{\indalt}[1][-1.5]{\\\hspace*{#1em}\textbar\quad}
 
 \usepackage{rail}
+
+
+% ----------------------------CODE LISTINGS---------------------------------- %
+\usepackage{listings}
+
 % ----------------------------BEGIN DOCUMENT--------------------------------- %
 
 \begin{document}
@@ -77,6 +82,7 @@
 \mainmatter
 \setcounter{secnumdepth}{2}
 
+\part{Project Documentation}
 %chapter 1
 \input{chapters/one_tufte}
 \clearpage
@@ -93,8 +99,10 @@
 \input{chapters/four_tufte}
 \clearpage
 
+\part{Reference Manual}\label{p:2}
+
 %chapter 5
-%\input{chapters/five_tufte}
+\input{chapters/five_tufte}
 \clearpage
  
 %-------------------------------BIBLIOGRAPHY---------------------------------- %

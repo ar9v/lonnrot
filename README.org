@@ -4,7 +4,7 @@
 
 Lonnrot is a Racket implementation of a subset of Scheme for Linux.
 It follows, among many tutorials and references,
-*CMSC 430 (/Design and Implementation of Programming Languages/)*,
+*CMSC 430 (Design and Implementation of Programming Languages)*,
 *Abdulaziz Ghuloum's* writings on incremental compiler construction and
 *Kent Dybvig's* ideas on the same topic.
 
@@ -19,13 +19,20 @@ raco pkg install 'https://github.com/cmsc430/www.git?path=langs#main'
 raco pkg install megaparsack
 #+end_src
 
-*** Install script (WIP)
-Once you have met the required dependencies, clone the repository and run =make=.
+*** Install script
+Once you have met the required dependencies, clone the repository and run =./install.sh=.
 
 #+begin_src bash
 git clone https://github.com/argvniyx/lonnrot.git
-cd lonnrot && make
+cd lonnrot && ./install.sh
 #+end_src
+
+=./install.sh= will simply probe for =~/bin= and will make a symlink to the CLI tool =compass= found
+in the =src/cli= directory. You can run =compass= without arguments to check its usage, but it
+basically is a utility to compile or interpret Lonnrot Scheme programs.
+
+If =~/bin= does not exist, the script will try to symlink in =/usr/bin/= by using sudo. You can either
+=C-c= and create =~/bin= or write your password. A bit rough on the edges, but it gets the job done.
 
 ** Contents
 - Sources, in =src/=, are Racket files that contain the implementation of Lonnrot.

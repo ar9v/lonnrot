@@ -1,58 +1,43 @@
 \chapter*{About the Lonnrot Language}
 \addcontentsline{toc}{chapter}{About the Lonnrot Language}
 
-% Discuss objective
-\newthought{The Lonnrot Language} is intended to be an implementation of a compiler for a
-subset of Scheme extended with the core of miniKanren. As such, it will belong to the
-functional and relational paradigms of programming. This project is intended to be,
-above all things, \textit{exploratory}. That implies several things, chief amongst which
-are that it is not the be-all end-all of implementations, nor is it a breakthrough or anything like that.
-It is quite simply a first approximation to compiler building (for me) and in that sense
-it synthesizes my learning from resources I've found and have yet to find along the way.
+% Language Description
+% b.1, b.2
+\section{Language Overview}
+\newthought{Lonnrot Scheme} is an implementation of a subset of Scheme written in Racket.
+As such, it can be described as a \textbf{strict}, \textbf{call-by-value} language with
+\textbf{dynamic typing}. It has \textit{atomic} data such as \textbf{integers}, \textbf{chars} and
+\textbf{booleans}, \textit{structured} data such as \textbf{strings}, \textbf{boxes} and
+\textbf{cons cells} and, last but not least, it has \textit{first class functions} in the form
+of \textbf{lambdas}. Core forms such as \texttt{let} and \texttt{if}, as well as arithmetic primitives
+such as addition and substraction are provided to manipulate the aforementioned data types, and
+are discussed at greater lengths in the rest of the report.\\
 
-That being said, there \textit{is} some sort of value proposition to this project. Mainly, most
-if not all implementations of miniKanren to date are interpreters or are DSL's for their
-respective host languages. This is understandable, especially when it comes to Lisps:
-extending the Lisp language via macros is a well documented tradition, and the resulting
-product is undeniably beautiful. Not only that, but given Lisp's syntax, it is indistinguishable from a DSL.
-However, there are things to be gained and interesting
-insights to be had: is it worth compiling miniKanren? Can we transfer our knowledge of
-methods used for other languages to this project? Can this shed light on how to optimize
-some of the workings that deal with the relational semantics?\marginnote{For example,
-  Will Byrd has talked about thread safety and the potential of parallelization in
-  miniKanren~\cite{byrd15}}
+% b.3
+\section{Errors in Lonnrot}
+\newthought{Given Lonnrot Scheme's nature} as a dynamic language and given that it targets
+x86, errors are mostly \textbf{runtime exceptions}.\marginnote{There is an interesting
+  exception with regards to strings: since as of the time of this writing the only way to generate
+  a string is through a string literal, we can get away with a bit of static analysis when using
+  \texttt{string-ref}: we can compute the length of the string at hand and as such an out-of-bounds error
+is technically static (which is, admittedly, a hack).}
 
-I do not claim to have answers to these questions, and frankly I know better than to expect to have
-them four months from now. What I do know is that it is an interesting premise for a
-first incursion in this domain (again, for me): \textbf{if not know, when would I start?} In the
-same vein, I hope that this report embodies the philosophy of growing a body of knowledge, of
-allowing oneself to err and to be playful. That is the reason why tenses will seem to be mixed up,
-because I'm writing this as I go. Speaking of which \ldots
+Type checking specifics are given in subsequent
+chapters, but suffice it to say that you may stumble upon one of these types of errors when
+using Lonnrot (broadly and obviously speaking):
 
-% Discuss area
-\newthought{This report will be divided} into an arbitrary number of chapters, which cover the steps
-involved in writing the compiler (s). This might seem weird at first, since a Preface is meant to outline
-the lay of the land. However, the construction of Lonnrot will be done following the ideas presented
-by Abdulaziz Ghuloum in \textit{An Incremental Approach to Compiler Construction}.
-\marginnote{Lindsey Kuper \cite{kuper19} talks about this approach and Kent Dybvig's
-  ``cousin'' approach of writing the compiler back-to-front, making a language progressively more
-  high-level, for those interested.}
-The main idea is to write multiple compilers, with each one covering a progressively larger language.
-This is opposed to the idea of writing one compiler, front to back, for the originally intended
-language. Due to this, it would be awkward to decide \textit{a priori} how chapters would be laid out.
-Instead, each chapter will be a documentation of progress for a given time frame (about a week or so).
+\begin{itemize}
+  \item \textbf{Syntactic:} Some core forms expect a distinct sequence of lists. For example,
+        \texttt{define} expects to have a list of symbols as its second element;
+        \texttt{cond} expects a finalizing \texttt{else} clause, \texttt{letrec} expects its
+        second element to be a list of 2-lists (i.e.\ the bindings).
+  \item \textbf{Semantic:} Primitives such as addition and substraction expect integers, whereas
+        others may require characters. Conditional forms (i.e. \texttt{if} and \texttt{cond}) are
+        usually not a problem in this regard, everything that is not \texttt{\#f} is considered
+        \textbf{true}.
+  \item \textbf{Memory:} Lonnrot does not implement garbage collection, so it is completely possible
+        to have a segfault. That being said, Lonnrot does implement \texttt{tail-call optimization},
+        which greatly saves stack space. However, for example, if you had an enormous list, you'd eventually
+        run out of memory.
+\end{itemize}
 
-The details and implications of this approach are very interesting and I would
-do them a disservice by trying to explain them in a paragraph; I would encourage anyone
-to read up on them. For now it's enough to say that this project is a sort of mishmash of ideas
-on compiler construction: from Ghuloum's approach, to what makes the WAM be the WAM, passing
-through what makes miniKanren different from Prolog. In any case, that means that each chapter covers
-the progression of each part of the compiler. For example, Chapter~\ref{ch:TFE} will cover my first
-deliverable, Chapter~\ref{ch:RSM} covers the second deliverable and so on. It could
-be thought of as a sort of more fleshed-out log.
-
-\newthought{Lastly, the last part of this report} comprises conclusions and some interesting
-miscellanea. The conclusion will naturally discuss the state of affairs by the time the course is over.
-The Appendix will have tidbits of information that might not fit the natural flow of the report.
-As of the time of this writing I'm not entirely sure what I want to include there, but
-stuff like the language's namesake will be explained there, for those who may be curious.

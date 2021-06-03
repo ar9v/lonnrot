@@ -5,24 +5,24 @@
     \indalt <character>
     \indalt <variable>
     \indalt <string>
-    \indalt <number>
+    \indalt <integer>
     \indalt <list>
 
     <variable> ::= <initial> <subsequent>*
 
     <initial> ::= <letter> | `!' | `$' | `&' | `*' | `/' | `:' | `<' | `=' | `>' | `?' | `~' | `_' | `^'
 
+    <subsequent> ::= <initial> | <digit> | `.' | `+' | `-' | `@'
+
     <letter> ::= a | \ldots | z | A | \ldots | Z
 
     <boolean> ::= \texttt{\#t} | \texttt{\#f}
 
-    <number> ::= <integer> | <decimal>
+    <digit> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 
     <integer> ::= <digit>+
 
-    <decimal> ::= <integer> `.' <digit>+
-
-    <char> ::= `\#' <any-character>
+    <char> ::= `\#\\' <any-character>
 
     <list> ::= (<datum>*)
     \indalt (<datum>+ . <datum>)

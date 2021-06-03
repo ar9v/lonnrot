@@ -1,4 +1,9 @@
 ;; List operations
+(define (length lst)
+  (if (empty? lst)
+      0
+      (+ 1 (length (cdr lst)))))
+
 (define (append l1 l2)
   (if (null? l1)
       l2
@@ -46,3 +51,12 @@
     (if (= e2 1)
         acc
         (mult e1 (sub1 e2) (+ acc e1)))) 
+
+;; Logic
+(define (and v1 v2)
+  (if v1 (if v2 #t #f) #f))
+
+(define (or v1 v2)
+  (cond [v1 #t]
+        [v2 #t]
+        [else #f]))

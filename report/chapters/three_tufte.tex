@@ -1,1 +1,115 @@
-\chapter{Rue de Toulon, or The Intermediate Code}\label{ch:RdTIR}
+\chapter{Execution}\label{ch:exe}
+
+\newthought{Once we have translated code} what is left is evaluating it. In this
+chapter, we discuss the implications of evaluating Lonnrot code: type checking,
+runtime operations and how what concessions have to be made to represent an environment
+in a setting such as x86 or a register-based virtual machine.
+
+% c.4
+\section{Semantics}\label{sec:ch3_semantics}
+\subsection{Type Tags}
+To be able to perform type-checking we must have a mechanism to distinguish values
+at runtime. To that end, we use \textbf{type tags}. Under that premise, values are either
+\textbf{immediates} or \textbf{pointers}.\marginnote{Immediates are called that way because they
+  represent data that is storable in a machine word.}
+The following table outlines the hierarchy and the corresponding tags used
+
+\begin{center}
+  \begin{tabular}[h]{c | c}
+    \toprule
+    \multicolumn{2}{c}{Immediates (end in 000)}\\
+    \textbf{Type} & \textbf{Tag}\\
+    \midrule
+    Integer & 0000 0000 \\
+    Char    & 0000 1000 \\
+    True    & 0001 1000 \\
+    False   & 0011 1000 \\
+    EOF     & 0101 1000 \\
+    Void    & 0111 1000 \\
+    Empty   & 1001 1000 \\
+    \bottomrule
+  \end{tabular}
+\end{center}
+
+\begin{center}
+  \begin{tabular}[h]{c | c}
+    \toprule
+    \multicolumn{2}{c}{Pointers (do not end in 000)}\\
+    \textbf{Type} & \textbf{Tag}\\
+    \midrule
+    Box         & 001 \\
+    Pair (Cons) & 010 \\
+    Strings     & 011 \\
+    Functions   & 100 \\
+    \bottomrule
+  \end{tabular}
+\end{center}
+\vspace{1cm}
+
+To type check, then, is to emit code that:
+\begin{itemize}
+  \item Moves a value to a scratch register (\texttt{r9})
+  \item \texttt{and}s this with a type mask (e.g.\ the type mask for an int is \texttt{1111})
+  \item Compares the result with the type tag
+  \item Generates a \texttt{jne} code that jumps to the runtime exception handler.
+\end{itemize}
+\vspace{1cm}
+
+Type tagging raises the issue of compiler correctness due to limitations in representation.
+\marginnote{Actually, the mere fact of storing integers within a machine word without any
+implementation of bignums also does this, but alas.}
+In Lonnrot Scheme \textit{there are integer overflows and underflows}, and the behavior is
+the same as that of, say, C. Likewise, it speaks to some of the characteristics of the x86
+architecture. The most obvious example of this is pointer tagging: choosing to represent
+pointers as values with the last three bits set to things other than zero is not arbitrary.
+This is because x86 is \textit{byte-addressable}, meaning that it is not possible for us to
+accidentally ``step on'' another address by fiddling with the last three bits. We have thus
+the ability to represent 8 different types of data with pointers.
+
+In any case, further information about which primitives accept which type of data is given
+in the Quick Reference~\ref{ch:quickref}.
+
+\subsection{Function Calling}
+Another important part of discussing the language's semantics is the issue of \textit{how} functions
+are evaluated. Generally, there are three main issues at hand: (1) do we evaluate \textit{all} function
+arguments before jumping to the function's code? (2) Which argument do we evaluate first? Should we
+do this left to right? (3) Do we check if the function exists before or after evaluating the arguments?
+
+To cut straight to the chase, the answer to those questions is: Lonnrot Scheme evaluates all of the
+arguments before the jump, and it does so before checking if the function exists.
+\marginnote{This is called, quite appropriately, \textbf{eval-apply} semantics of function application}
+Regarding question number two, there is no particularly defined way to do this in Scheme, generally. However
+Lonnrot Scheme evaluates arguments \textbf{left to right}.
+
+% d.2
+\section{Runtime and Memory}
+The runtime allows us to perform certain operations that would otherwise require lots of assembly code.
+The prime example of this is printing results, where we piggy-back on \texttt{printf} and a couple of
+helper functions that allow for special formatting depending on the type of data to be represented. This
+is especially handy because of type tagging: we can delegate the bit shifting required to produce an
+actual value to the runtime instead of emitting more code ourselves (even if it is possible to do so).
+
+Equally important though is the fact that  the runtime allows us to allocate heap memory through the use of
+\texttt{malloc}.
+This should make it apparent why the discussion on representing memory during compilation was
+so short: because we are already thinking in terms of the actual hardware from the beginning! When we generate
+code, we have to think about how we alter \texttt{rsp} and \texttt{rbx} (our heap pointer).
+So, in lieu of reproducing what can be found in tons of x86 manuals, a brief description of the core
+elements of the x86 architecture that come into play in our compiler are listed below:
+
+\begin{center}
+  \begin{tabular}[h]{c | c}
+    \toprule
+    \textbf{Register} & \textbf{Role}\\
+    \midrule
+    rax & Stores the result of intermediate and final computations \\
+    rbx & Stores the heap pointer\\
+    rcx & Scratch register, used to store the size of a closure\\
+    rdx & Used to pass the heap pointer to the runtime before finishing\\
+    r8  & Scratch register (used when compiling binary primitives)\\
+    r9  & Scratch register (used for intermediate values in assertions)\\
+    rsp & Stores the stack pointer \\
+    rdi & By SysV ABI convention, this is the first argument register \\
+    \bottomrule
+  \end{tabular}
+\end{center}

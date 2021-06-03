@@ -1,11 +1,6 @@
-;; !: Int -> Int
-;; ! takes an integer and returns and computes its factorial
 (define (! n)
- (if (zero? n)
-     1
-     (* n (! (sub1 n)))))
+  (if (zero? n)
+      1
+      (* n (! (sub1 n)))))
 
-(begin
- (! 5)
- ;; (! 4)
- (! 6))
+(! 5) 

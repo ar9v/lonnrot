@@ -1,17 +1,41 @@
-\chapter{Tetragrammaton}\label{ch:one}
+\chapter{The Front End}\label{ch:one}
 
-\epigraph{The s-expression syntax dates back to 1960. This syntax is often controversial amongst programmers. Observe, however, something deeply valuable that it gives us. While parsing traditional languages can be very complex,
-  parsing this syntax is virtually trivial.}{Shriram Krishnamurthi~\cite{krishnamurthi20}}
+% Only add if there is time
+% \epigraph{The s-expression syntax dates back to 1960. This syntax is often controversial amongst programmers. Observe, however, something deeply valuable that it gives us. While parsing traditional languages can be very complex,
+%   parsing this syntax is virtually trivial.}{Shriram Krishnamurthi~\cite{krishnamurthi20}}
 
-% Mention we won't deal with strings for now
-% Mention anyChar is literally any char preceded by a backslash since the grammar does not include it, digit is 0 to 9
-\section{Basic Elements}\label{sec:ch1_BE}
+% c.2
+\newthought{In this chapter} we go over the basic structural elements of Lonnrot Scheme: its lexicon and its syntax. More
+importantly, we describe the way these concepts map to the actual implementation of the project, that is,
+we describe how we can express these items as \textbf{parser combinators} for use with \texttt{megaparsack}.\\
+
+% TODO: Graham Hutton quote here
+\newthought{Although} it is common to express lexemes in a language as regular expressions, an interesting insight
+of Chomsky's Hierarchy is the fact that given that Context Free Languages subsume Regular Languages we
+can also express these as grammars (albeit simple ones).\marginnote{Indeed the idea of parser combinators, I find,
+  is not that different in spirit from that of Thompson's Algorithm to convert regex to NFAs}
+
+This might seem a gratuitous observation, but it's not: it allows for expressing atomic data as
+\textbf{parser combinators}. Building a parser for a language is, consequently, building parsers for all types
+of simple, more easily discernible data, and putting these together. We present thus the core lexemes
+of our language as a grammar.\clearpage
+
+
+\section{Lexicon}\label{sec:ch1_lex}
 \input{chapters/ch1/atoms}
+\clearpage
 
-\section{Syntax}\label{sec:ch1_Syn}
+% c.3
+% Make marginnote that talks about how formals do not include pairs
+% Note that application does not take an arbitrary expression, but a variable
+% Explain that variables includes other primitives, such as +, -, not, eq? etc.
+\section{Syntax}\label{sec:ch1_syn}
 \input{chapters/ch1/grammar}
 \clearpage
 
 \section{Syntax Diagrams}\label{sec:ch1_SD}
+\subsection{Tokens}
 \input{chapters/ch1/atom-rails}
+
+\subsection{Grammar}
 \input{chapters/ch1/grammar-rails}

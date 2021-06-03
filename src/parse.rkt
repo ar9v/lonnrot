@@ -82,6 +82,7 @@
            ;;;; Predicates
            [(list 'zero? e)         (Prim1 'zero?         (parse-e e))]
            [(list 'null? e)         (Prim1 'null?         (parse-e e))]
+           [(list 'empty? e)         (Prim1 'null?         (parse-e e))]
            [(list 'integer? e)      (Prim1 'integer?      (parse-e e))]
            [(list 'boolean? e)      (Prim1 'boolean?      (parse-e e))]
            [(list 'string? e)       (Prim1 'string?       (parse-e e))]

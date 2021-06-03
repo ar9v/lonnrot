@@ -65,8 +65,8 @@
     (char/p #\#)
     (char/p #\\)
     [c <- (or/p
-           (string/p "newline")
-           (string/p "tab")
+           (try/p (string/p "newline"))
+           (try/p (string/p "tab"))
            any-char/p)]
 
     (pure
@@ -152,8 +152,8 @@
   (do
     (token/p (string/p "lambda"))
     [params <- (token/p formals/p)]
-    [body <- expr/p]
-  (pure `(lambda ,params ,body))))
+    [body <- (many/p (token/p expr/p))]
+  (pure `(lambda ,params (begin ,@body)))))
 
 ;; bindings: Parser x Int x Int -> Parser
 ;; bindings parses a list of 2-lists. Since let (for the moment)
@@ -186,16 +186,16 @@
   (do
     (token/p (string/p "let"))
     [bindings <- (token/p (bindings/p expr/p 1 1))]
-    [body <- (token/p expr/p)]
-    (pure `(let ,bindings, body))))
+    [body <- (many/p (token/p expr/p))]
+    (pure `(let ,bindings (begin ,@body)))))
 
 (define letrec/p
   (do
     (token/p (string/p "letrec"))
     [bindings <- (token/p (bindings/p (lst/p lambda/p) 1 +inf.0))]
-    [body <- (token/p expr/p)]
+    [body <- (many/p (token/p expr/p))]
 
-    (pure `(letrec ,bindings ,body))))
+    (pure `(letrec ,bindings (begin ,@body)))))
 
 
 (define slist/p
@@ -285,8 +285,8 @@
      (token/p (string/p "define"))
       [defs <- (token/p (lst/p
                          (many/p (token/p variable/p) #:min 1)))]
-     [body <- (token/p expr/p)]
-      (pure `(define ,defs (begin ,body)))))
+     [body <- (many/p (token/p expr/p))]
+      (pure `(define ,defs (begin ,@body)))))
 
 ;; TODO:
 ;; Currently, we try/p for whole parsers, which means that

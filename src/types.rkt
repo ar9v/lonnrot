@@ -38,7 +38,7 @@
 (define type-proc #b100)
 
 (define (bits->value b)
-  (cond [(= type-int (bitwise-and b #b1))
+  (cond [(= type-int (bitwise-and b mask-int))
          ;; We shift b right by 1 bit, i.e. we drop
          ;; the bit flag, so we have the integer representation
          (arithmetic-shift b (- int-shift))]
